@@ -1,0 +1,53 @@
+{
+  "column_names": [
+    "x - coordinate",
+    "y - coordinate",
+    "scoring position",
+    "cx",
+    "cy",
+    "cz",
+    "total energy",
+    "momentum"
+  ],
+
+  "positions_scoring": [
+    -96.0,
+    -60.0,
+    0.0,
+    100.0
+  ],
+
+  "tolerance": 0.001,
+
+  "FWHM_0": 15.0,
+  "sigma_0_angle": 0.0,
+  "sigma_0_theta": 0.0,
+
+  "z0": 0.0,
+
+  "X0": 360.8,
+  "j": 0.200,
+  "Z_A_water": 0.555,
+  "K": 0.307075,
+  "I": 78.0e-6,
+  "rest_energy_electron": 0.511,
+
+
+  "cleaning_cut_mode": "theta",
+  "theta_percentile_min": 0.0,
+  "theta_percentile_max": 99.0,
+  "ellipse_peak_fraction": 0.1,
+
+  "columns": {
+    "x - coordinate": "x",
+    "y - coordinate": "y",
+    "x_prime": "xp",
+    "y_prime": "yp",
+    "theta": "theta",
+    "delta energy": "delta_energy",
+    "delta_xp": "delta_xp",
+    "delta_yp": "delta_yp",
+    "delta_theta": "delta_theta",
+    "delta_energy": "delta_energy"
+  }
+}
