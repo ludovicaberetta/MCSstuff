@@ -159,6 +159,14 @@ def main() -> int:
             "with status 1 if at least one case failed."
         ),
     )
+    parser.add_argument(
+        "--nRows",
+        type = int,
+        default = None,
+        help = (
+            "Total number of rows to be read in the MyLip.load_data"
+            "If omitted, the whole dataset is read"
+        )
 
     args = parser.parse_args()
 
@@ -183,6 +191,14 @@ def main() -> int:
 
     with parameters_json.open("r", encoding="utf-8") as handle:
         base_parameters = json.load(handle)
+    base_parameters["nRows"]=args.nRows
+    if base_parameters["nRows"] is None:
+        print("[INFO] The whole dataset is read.")
+    else:
+        print(
+            "[INFO] Only: "
+            f"{constant_parameters['nRows']} rows are read."
+        )
 
     if not isinstance(base_parameters, dict):
         raise TypeError("The parameters JSON must contain one JSON object.")
