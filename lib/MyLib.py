@@ -17882,73 +17882,93 @@ def _discover_outputs(
     overwrite_gz=False,
 ):
     """
-    Decompress all .23.gz files found in one case directory and return a map:
+    Individua i file .23/.23.gz senza decomprimerli.
 
+    Restituisce una mappa con le chiavi:
         vacuum_no_rf
         vacuum_rf
         air_no_rf
         air_rf
 
-    For the default classifier, particle is needed because:
-    - proton files are always treated as no-ripple-filter files;
-    - carbon files without 'noRippFilters' are treated as ripple-filter files.
-    """
+    Se esistono entrambe le versioni dello stesso file,
+    preferisce quella compressa .23.gz.
 
+    overwrite_gz è mantenuto per compatibilità con le
+    chiamate esistenti, ma non viene utilizzato.
+    """
     case_dir = Path(case_dir)
+
+    if not case_dir.is_dir():
+        raise NotADirectoryError(
+            f"Case directory does not exist: {case_dir}"
+        )
 
     candidates = (
         sorted(case_dir.glob("*.23"))
         + sorted(case_dir.glob("*.23.gz"))
     )
 
+    candidates = [
+        path
+        for path in candidates
+        if path.is_file()
+    ]
+
     if not candidates:
         raise FileNotFoundError(
             f"No .23/.23.gz files found in {case_dir}."
         )
 
-    output_map = {}
-    seen_gz_targets = set()
+    selected_files = {}
 
     for candidate in candidates:
+        # Serve soltanto per identificare due versioni
+        # dello stesso file. Non crea nulla su disco.
+        logical_path = (
+            candidate.with_suffix("")
+            if candidate.suffix.lower() == ".gz"
+            else candidate
+        )
 
-        if candidate.suffix.lower() == ".gz":
-            uncompressed = candidate.with_suffix("")
+        # I .gz vengono elaborati dopo i .23:
+        # quindi hanno la precedenza.
+        selected_files[logical_path] = candidate
 
-            if uncompressed in seen_gz_targets:
-                continue
+    output_map = {}
 
-            path = decompress_gz_file(
-                candidate,
-                overwrite=overwrite_gz,
-            )
-
-            seen_gz_targets.add(uncompressed)
-
-        else:
-            path = candidate
-
+    for logical_path, actual_path in sorted(
+        selected_files.items(),
+        key=lambda item: item[0].name,
+    ):
         if file_classifier is None:
+            # Il classificatore predefinito riceve il nome
+            # senza .gz, come nel precedente percorso.
             medium, has_rf = _classify_output_file(
-                path,
+                logical_path,
                 particle,
             )
         else:
-            # Mantiene la firma originale per un classificatore custom:
-            # file_classifier(path) -> (medium, has_ripple_filter)
-            medium, has_rf = file_classifier(path)
+            # Un classificatore custom riceve il file reale.
+            medium, has_rf = file_classifier(actual_path)
 
         key = f"{medium}_{'rf' if has_rf else 'no_rf'}"
 
-        if key in output_map and output_map[key] != path:
+        if key in output_map and output_map[key] != actual_path:
             raise RuntimeError(
                 f"Multiple files classified as {key} in {case_dir}: "
-                f"{output_map[key].name!r} and {path.name!r}."
+                f"{output_map[key].name!r} and "
+                f"{actual_path.name!r}."
             )
 
-        output_map[key] = path
+        # Restituisce il percorso del file realmente esistente,
+        # incluso il suffisso .gz quando presente.
+        output_map[key] = actual_path
+
+        print(
+            f"[INFO] Selected {key}: {actual_path.name}"
+        )
 
     return output_map
-
 
 def _normalise_scatterer_name(value):
     """Map the labels returned by run_whole to stable labels for batch plots."""
@@ -18682,81 +18702,6 @@ def _classify_output_file(output_path, particle):
         )
 
     return medium, has_ripple_filter
-
-def _discover_outputs(
-    case_dir,
-    particle,
-    *,
-    file_classifier=None,
-    overwrite_gz=False,
-):
-    """
-    Decompress all .23.gz files found in one case directory and return a map:
-
-        vacuum_no_rf
-        vacuum_rf
-        air_no_rf
-        air_rf
-
-    For the default classifier, particle is needed because:
-    - proton files are always treated as no-ripple-filter files;
-    - carbon files without 'noRippFilters' are treated as ripple-filter files.
-    """
-
-    case_dir = Path(case_dir)
-
-    candidates = (
-        sorted(case_dir.glob("*.23"))
-        + sorted(case_dir.glob("*.23.gz"))
-    )
-
-    if not candidates:
-        raise FileNotFoundError(
-            f"No .23/.23.gz files found in {case_dir}."
-        )
-
-    output_map = {}
-    seen_gz_targets = set()
-
-    for candidate in candidates:
-
-        if candidate.suffix.lower() == ".gz":
-            uncompressed = candidate.with_suffix("")
-
-            if uncompressed in seen_gz_targets:
-                continue
-
-            path = decompress_gz_file(
-                candidate,
-                overwrite=overwrite_gz,
-            )
-
-            seen_gz_targets.add(uncompressed)
-
-        else:
-            path = candidate
-
-        if file_classifier is None:
-            medium, has_rf = _classify_output_file(
-                path,
-                particle,
-            )
-        else:
-            # Mantiene la firma originale per un classificatore custom:
-            # file_classifier(path) -> (medium, has_ripple_filter)
-            medium, has_rf = file_classifier(path)
-
-        key = f"{medium}_{'rf' if has_rf else 'no_rf'}"
-
-        if key in output_map and output_map[key] != path:
-            raise RuntimeError(
-                f"Multiple files classified as {key} in {case_dir}: "
-                f"{output_map[key].name!r} and {path.name!r}."
-            )
-
-        output_map[key] = path
-
-    return output_map
 
 
 def _normalise_scatterer_name(value):
