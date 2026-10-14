@@ -15159,6 +15159,10 @@ def run_whole(file_vacuum, file_air, constant_parameters):
     # CONSTANTS
     # ============================================================
 
+    nRows = float (
+        constant_parameters["nRows"]
+    )
+    
     ripple_filters = bool(
         constant_parameters["ripple_filters"]
     )
@@ -15340,7 +15344,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         positions_scoring,
         tolerance,
         column_names,
-        nRows=100000,
+        nRows=nRows,
     )
 
     setup_air = setup_dataset(
@@ -15350,7 +15354,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         positions_scoring,
         tolerance,
         column_names,
-        nRows=100000,
+        nRows=nRows,
     )
 
     if setup_vacuum is None:
