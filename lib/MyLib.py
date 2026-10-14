@@ -19006,18 +19006,113 @@ def run_whole_all_energies(
         run_single_case = run_whole
 
     root_dir = Path(root_dir).expanduser().resolve()
+
     roots = {
         "proton": root_dir / "PROTON",
         "carbon": root_dir / "CARBON",
     }
 
+    only = base_parameters.get("only")
+
+    if only is not None:
+        if not isinstance(only, str):
+            raise TypeError(
+                "Il parametro 'only' deve essere "
+                "una stringa oppure None."
+            )
+
+        only = only.strip()
+
+        if (
+            not only
+            or only in {".", ".."}
+            or "/" in only
+            or "\\" in only
+        ):
+            raise ValueError(
+                "'only' deve contenere il nome di un caso, "
+                "per esempio p030 o p030mm."
+            )
+
+    def case_selection_key(name):
+        normalized = name.strip().lower()
+
+        if normalized.endswith("mm"):
+            normalized = normalized[:-2]
+
+        return normalized
+
+    only_key = (
+        case_selection_key(only)
+        if only is not None
+        else None
+    )
+
+    # Individua i casi prima di leggere o decomprimere file.
+    selected_case_dirs = {}
+
+    for expected_particle, particle_root in roots.items():
+        folders = []
+
+        if particle_root.is_dir():
+            for case_dir in sorted(particle_root.iterdir()):
+                if not case_dir.is_dir():
+                    continue
+
+                if (
+                    only_key is not None
+                    and case_selection_key(case_dir.name)
+                    != only_key
+                ):
+                    continue
+
+                try:
+                    _parse_case_folder(case_dir.name)
+                except ValueError:
+                    continue
+
+                folders.append(case_dir)
+
+        selected_case_dirs[expected_particle] = folders
+
+    if only is not None:
+        matched_folders = [
+            folder
+            for folders in selected_case_dirs.values()
+            for folder in folders
+        ]
+
+        if not matched_folders:
+            raise FileNotFoundError(
+                f"Nessun caso valido corrisponde a {only!r} "
+                f"nelle cartelle PROTON/ o CARBON/ "
+                f"all'interno di {root_dir}."
+            )
+
+        print(
+            "\n[INFO] Analisi limitata ai casi:",
+            ", ".join(str(folder) for folder in matched_folders),
+        )
+    else:
+        print("\n[INFO] Analisi di tutti i casi disponibili.")
+
     case_metadata = []
     all_scatterer_tables = []
     errors = []
 
-    total_configurations = _count_planned_configurations(
-        root_dir
-    )
+    # Conta solo le configurazioni dei casi selezionati.
+    # Non apre e non decomprime i file.
+    total_configurations = 0
+
+    for expected_particle, folders in selected_case_dirs.items():
+        for case_dir in folders:
+            particle, _ = _parse_case_folder(case_dir.name)
+
+            if particle == expected_particle:
+                total_configurations += sum(
+                    1
+                    for _ in _required_output_keys(particle)
+                )
 
     completed_configurations = 0
 
@@ -19034,23 +19129,28 @@ def run_whole_all_energies(
     )
 
     for expected_particle, particle_root in roots.items():
-        if not particle_root.exists():
-            errors.append({
-                "case_folder": "",
-                "particle": expected_particle,
-                "range_mm": np.nan,
-                "configuration": "",
-                "stage": "discovery",
-                "error": f"Directory not found: {particle_root}",
-            })
+        if not particle_root.is_dir():
+            # Con --only, l'assenza della directory dell'altra
+            # specie non deve produrre un errore.
+            if only is None:
+                errors.append({
+                    "case_folder": "",
+                    "particle": expected_particle,
+                    "range_mm": np.nan,
+                    "configuration": "",
+                    "stage": "discovery",
+                    "error": (
+                        f"Directory not found: {particle_root}"
+                    ),
+                })
+
             continue
 
-        for case_dir in sorted(particle_root.iterdir()):
-            if not case_dir.is_dir():
-                continue
-
+        for case_dir in selected_case_dirs[expected_particle]:
             try:
-                particle, range_mm = _parse_case_folder(case_dir.name)
+                particle, range_mm = _parse_case_folder(
+                    case_dir.name
+                )
             except ValueError:
                 # Ignore unrelated directories without interrupting the batch.
                 continue
@@ -19215,6 +19315,7 @@ def run_whole_all_energies(
                     beam_parameters=beam_parameters,
                     ripple_filters=(configuration == "With ripple filter"),
                 )
+                params["nRows"] = base_parameters.get("nRows")
 
                 batch_output_root = Path(
                     base_parameters.get(
