@@ -15545,13 +15545,20 @@ def run_whole(file_vacuum, file_air, constant_parameters):
             lambd=1.0e-10,
             make_plot=False,
         )
-
+    lambda_values = (
+        1e-8,
+        1e-10,
+        1e-12,
+        1e-14,
+        1e-16,
+        1e-18,
+    )
     for grid_name, test_grid in (
         ("Originale", xbin),
         ("Centrata", xbin_centered_test),
     ):
         for kernel_sigma in (7.794, 16.301):
-            for lambda_test in (1.0e-10, 0.1):
+            for lambda_test in lambda_values:
 
                 pdf_true = normalize_pdf(
                     np.exp(-0.5 * (test_grid / 6.30) ** 2),
@@ -15605,6 +15612,12 @@ def run_whole(file_vacuum, file_air, constant_parameters):
                     method="fit",
                     fit_window=None,
                 )
+                sigma_recovered_moment = measure_sigma(
+                    test_grid,
+                    pdf_recovered,
+                    method="moment",
+                    fit_window=None,
+                )
 
                 sigma_reconvolved = measure_sigma(
                     test_grid,
@@ -15629,7 +15642,8 @@ def run_whole(file_vacuum, file_air, constant_parameters):
                     "Lambda": lambda_test,
                     "Momento raw [mm2]": raw_second_moment,
                     "Massa negativa raw": raw_info["negative_mass"],
-                    "Sigma recuperata [mm]": sigma_recovered,
+                    "Sigma fit [mm]": sigma_recovered,
+                    "Sigma momento [mm]": sigma_recovered_moment,
                     "Sigma riconvoluta [mm]": sigma_reconvolved,
                     "Errore forward": forward_error,
                     "Errore sigma [%]": 100.0 * sigma_relative_error,
