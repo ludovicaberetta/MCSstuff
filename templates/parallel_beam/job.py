@@ -36,7 +36,7 @@ def save_figure(fig: Any, path: Path, dpi: int = 180) -> bool:
     return True
 
 def case_folder_name(value: str) -> str:
-    ""Accept one folder name, not path.""
+    """Accept one folder name, not path."""
     name = value.strip()
 
     if (
