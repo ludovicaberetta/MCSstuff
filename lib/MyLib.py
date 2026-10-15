@@ -52,6 +52,40 @@ AUTO_BINNING_MIN_BINS = 80
 AUTO_BINNING_MAX_BINS = 400
 
 AUTO_BINNING_FINE_GRID_SIZE = 2048
+
+HISTOGRAM_N_BINS = None
+
+
+def configure_histogram_binning(constant_parameters):
+    """
+    Configura il numero comune di bin degli istogrammi.
+    Il valore deve essere presente nei parametri.
+    """
+    global HISTOGRAM_N_BINS
+
+    if "histogram_n_bins" not in constant_parameters:
+        raise KeyError(
+            "Manca 'histogram_n_bins' nei constant_parameters."
+        )
+
+    n_bins = constant_parameters["histogram_n_bins"]
+
+    if (
+        isinstance(n_bins, bool)
+        or not isinstance(n_bins, int)
+        or n_bins < 2
+    ):
+        raise ValueError(
+            "'histogram_n_bins' deve essere "
+            "un numero intero maggiore o uguale a 2."
+        )
+
+    HISTOGRAM_N_BINS = n_bins
+
+    print(
+        "[INFO] Numero comune di bin degli istogrammi: "
+        f"{HISTOGRAM_N_BINS}"
+    )
 from scipy.signal import fftconvolve
 
 
@@ -784,22 +818,22 @@ def make_auto_binning_from_dataframe(
     low_percentile=0.1,
     high_percentile=99.9,
     padding_fraction=0.10,
-    min_bins=80,
-    max_bins=400,
     fine_grid_size=2048,
 ):
     """
-    Create standardized automatic histogram binning.
+    Costruisce un binning con:
+    - numero di bin comune, letto dai constant_parameters;
+    - range dinamico calcolato dal dataframe;
+    - range esteso per includere tutti i dati finiti.
 
-    Range:
-    - uses the fixed robust percentile rule;
-    - adds a fixed relative padding;
-    - is expanded to include every finite data point.
-
-    Number of bins:
-    - Freedman-Diaconis width;
-    - clipped to [min_bins, max_bins].
+    Il nome è mantenuto per compatibilità con le chiamate esistenti.
     """
+    if HISTOGRAM_N_BINS is None:
+        raise RuntimeError(
+            "Binning non configurato. Chiamare "
+            "configure_histogram_binning(constant_parameters) "
+            "prima dell'analisi."
+        )
 
     if not (
         0.0 <= low_percentile
@@ -811,19 +845,21 @@ def make_auto_binning_from_dataframe(
             "0 <= low_percentile < high_percentile <= 100."
         )
 
-    if padding_fraction < 0.0:
+    if (
+        not np.isfinite(padding_fraction)
+        or padding_fraction < 0.0
+    ):
         raise ValueError(
-            "padding_fraction must be non-negative."
+            "padding_fraction must be finite and non-negative."
         )
 
-    if min_bins < 2:
+    if (
+        isinstance(fine_grid_size, bool)
+        or not isinstance(fine_grid_size, (int, np.integer))
+        or fine_grid_size < 2
+    ):
         raise ValueError(
-            "min_bins must be at least 2."
-        )
-
-    if max_bins < min_bins:
-        raise ValueError(
-            "max_bins must be greater than or equal to min_bins."
+            "fine_grid_size must be an integer of at least 2."
         )
 
     data = get_clean_data(
@@ -836,36 +872,23 @@ def make_auto_binning_from_dataframe(
             f"Column {column!r} contains no finite values."
         )
 
-    data_min = float(
-        np.min(data)
-    )
-
-    data_max = float(
-        np.max(data)
-    )
+    data_min = float(np.min(data))
+    data_max = float(np.max(data))
 
     robust_min, robust_max = np.percentile(
         data,
-        [
-            low_percentile,
-            high_percentile,
-        ],
+        [low_percentile, high_percentile],
     )
 
-    robust_min = float(
-        robust_min
-    )
-
-    robust_max = float(
-        robust_max
-    )
-
+    robust_min = float(robust_min)
+    robust_max = float(robust_max)
     robust_width = robust_max - robust_min
 
-    if not np.isfinite(robust_width) or robust_width <= 1.0e-14:
-        centre = float(
-            np.mean(data)
-        )
+    if (
+        not np.isfinite(robust_width)
+        or robust_width <= 1.0e-14
+    ):
+        centre = float(np.mean(data))
 
         half_width = max(
             abs(centre) * 0.05,
@@ -897,9 +920,7 @@ def make_auto_binning_from_dataframe(
         )
 
     if xmax <= xmin:
-        centre = 0.5 * (
-            xmin + xmax
-        )
+        centre = 0.5 * (xmin + xmax)
 
         half_width = max(
             abs(centre) * 0.05,
@@ -909,71 +930,7 @@ def make_auto_binning_from_dataframe(
         xmin = centre - half_width
         xmax = centre + half_width
 
-    q25, q75 = np.percentile(
-        data,
-        [
-            25.0,
-            75.0,
-        ],
-    )
-
-    iqr = float(
-        q75 - q25
-    )
-
-    if iqr > 0.0:
-        target_bin_width = (
-            2.0
-            * iqr
-            / (data.size ** (1.0 / 3.0))
-        )
-    else:
-        standard_deviation = (
-            float(
-                np.std(
-                    data,
-                    ddof=1,
-                )
-            )
-            if data.size > 1
-            else 0.0
-        )
-
-        if standard_deviation > 0.0:
-            target_bin_width = (
-                3.5
-                * standard_deviation
-                / (data.size ** (1.0 / 3.0))
-            )
-        else:
-            target_bin_width = (
-                (xmax - xmin)
-                / float(min_bins)
-            )
-
-    if (
-        not np.isfinite(target_bin_width)
-        or target_bin_width <= 0.0
-    ):
-        target_bin_width = (
-            (xmax - xmin)
-            / float(min_bins)
-        )
-
-    nbins = int(
-        np.ceil(
-            (xmax - xmin)
-            / target_bin_width
-        )
-    )
-
-    nbins = int(
-        np.clip(
-            nbins,
-            min_bins,
-            max_bins,
-        )
-    )
+    nbins = HISTOGRAM_N_BINS
 
     edges = np.linspace(
         xmin,
@@ -983,14 +940,13 @@ def make_auto_binning_from_dataframe(
     )
 
     centers = 0.5 * (
-        edges[:-1]
-        + edges[1:]
+        edges[:-1] + edges[1:]
     )
 
     finegrid = np.linspace(
         xmin,
         xmax,
-        int(fine_grid_size),
+        fine_grid_size,
         dtype=float,
     )
 
@@ -1000,7 +956,7 @@ def make_auto_binning_from_dataframe(
             float(xmin),
             float(xmax),
         ),
-        "nbins": int(nbins),
+        "nbins": nbins,
         "edges": edges,
         "centers": centers,
         "bin_width": float(
@@ -1013,8 +969,7 @@ def make_auto_binning_from_dataframe(
         "data_min": data_min,
         "data_max": data_max,
         "protocol": (
-            "auto_percentile_padding_"
-            "freedman_diaconis"
+            "fixed_nbins_dynamic_range"
         ),
     }
 
@@ -15159,6 +15114,10 @@ def run_whole(file_vacuum, file_air, constant_parameters):
     # CONSTANTS
     # ============================================================
 
+    configure_histogram_binning(
+        constant_parameters
+    )
+    
     nRows = float (
         constant_parameters["nRows"]
     )
@@ -15273,8 +15232,6 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         if case_output_dir_value
         else None
     )
-
-
     print("\n" + "=" * 72)
     print("PLOT-SAVING DEBUG INSIDE run_whole")
     print("=" * 72)
@@ -18946,6 +18903,9 @@ def run_whole_all_energies(
         wet_plots            : dict scatterer -> matplotlib Figure
     """
     _validate_base_parameters(base_parameters)
+    configure_histogram_binning(
+        constant_parameters
+    )
 
     if run_single_case is None:
         run_single_case = run_whole
@@ -19766,6 +19726,9 @@ def run_whole_all_energiee(
                     beam_parameters=beam_parameters,
                     ripple_filters=(configuration == "With ripple filter"),
                 )
+                params["histogram_n_bins"] = base_parameters[
+                        "histogram_n_bins"
+                    ]
 
                 _notify_progress(
                     progress_callback,
