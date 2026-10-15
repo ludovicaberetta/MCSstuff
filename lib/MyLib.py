@@ -18904,7 +18904,7 @@ def run_whole_all_energies(
     """
     _validate_base_parameters(base_parameters)
     configure_histogram_binning(
-        constant_parameters
+        base_parameters
     )
 
     if run_single_case is None:
