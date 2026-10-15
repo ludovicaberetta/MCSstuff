@@ -15116,9 +15116,17 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         constant_parameters
     )
     
-    nRows = float (
-        constant_parameters["nRows"]
-    )
+    nRows_value = constant_parameters.get("nRows")
+
+    if nRows_value is None:
+        nRows = None
+    else:
+        nRows = int(nRows_value)
+
+        if nRows <= 0:
+            raise ValueError(
+                "nRows deve essere un intero positivo oppure None."
+            )
     
     ripple_filters = bool(
         constant_parameters["ripple_filters"]
