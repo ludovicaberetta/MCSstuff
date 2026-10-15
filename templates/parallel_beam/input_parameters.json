@@ -18,6 +18,7 @@
   ],
 
   "tolerance": 0.001,
+  "histogram_n_bins": 200,
 
   "FWHM_0": 15.0,
   "sigma_0_angle": 0.0,
