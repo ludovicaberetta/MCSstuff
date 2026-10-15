@@ -15489,6 +15489,31 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         maximum_step=40.0 / 2047.0,
     )
 
+    dx_previous = float(
+        np.mean(np.diff(xbin))
+    )
+
+    half_width = float(
+        np.max(np.abs(xbin))
+    )
+
+    n_half = int(
+        np.ceil(half_width / dx_previous)
+    )
+
+    dx_centered = half_width / n_half
+
+    xbin = (
+        np.arange(-n_half, n_half + 1, dtype=float)
+        * dx_centered
+    )
+
+    print("\n[WIENER GRID]")
+    print(f"Range: [{xbin[0]:.8f}, {xbin[-1]:.8f}] mm")
+    print(f"N punti: {xbin.size}")
+    print(f"Passo: {dx_centered:.10f} mm")
+    print(f"Coordinata centrale: {xbin[n_half]:.10f} mm")
+
     xpbin = make_global_analysis_grid(
         analysis_dataframes,
         columns=(
