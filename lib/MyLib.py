@@ -7336,9 +7336,7 @@ def analyze_surface_masked(
             surface_df,
             "delta energy",
             binning=energy_binning,
-            x_scale_factor=x_scale_factor,
         )
-
     # ---------------------------------------------------------------
     # Theta fit:
     # performed on the masked DataFrame.
