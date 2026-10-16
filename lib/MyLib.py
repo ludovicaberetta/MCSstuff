@@ -52,6 +52,40 @@ AUTO_BINNING_MIN_BINS = 80
 AUTO_BINNING_MAX_BINS = 400
 
 AUTO_BINNING_FINE_GRID_SIZE = 2048
+
+HISTOGRAM_N_BINS = None
+
+
+def configure_histogram_binning(constant_parameters):
+    """
+    Configura il numero comune di bin degli istogrammi.
+    Il valore deve essere presente nei parametri.
+    """
+    global HISTOGRAM_N_BINS
+
+    if "histogram_n_bins" not in constant_parameters:
+        raise KeyError(
+            "Manca 'histogram_n_bins' nei constant_parameters."
+        )
+
+    n_bins = constant_parameters["histogram_n_bins"]
+
+    if (
+        isinstance(n_bins, bool)
+        or not isinstance(n_bins, int)
+        or n_bins < 2
+    ):
+        raise ValueError(
+            "'histogram_n_bins' deve essere "
+            "un numero intero maggiore o uguale a 2."
+        )
+
+    HISTOGRAM_N_BINS = n_bins
+
+    print(
+        "[INFO] Numero comune di bin degli istogrammi: "
+        f"{HISTOGRAM_N_BINS}"
+    )
 from scipy.signal import fftconvolve
 
 
@@ -784,22 +818,22 @@ def make_auto_binning_from_dataframe(
     low_percentile=0.1,
     high_percentile=99.9,
     padding_fraction=0.10,
-    min_bins=80,
-    max_bins=400,
     fine_grid_size=2048,
 ):
     """
-    Create standardized automatic histogram binning.
+    Costruisce un binning con:
+    - numero di bin comune, letto dai constant_parameters;
+    - range dinamico calcolato dal dataframe;
+    - range esteso per includere tutti i dati finiti.
 
-    Range:
-    - uses the fixed robust percentile rule;
-    - adds a fixed relative padding;
-    - is expanded to include every finite data point.
-
-    Number of bins:
-    - Freedman-Diaconis width;
-    - clipped to [min_bins, max_bins].
+    Il nome è mantenuto per compatibilità con le chiamate esistenti.
     """
+    if HISTOGRAM_N_BINS is None:
+        raise RuntimeError(
+            "Binning non configurato. Chiamare "
+            "configure_histogram_binning(constant_parameters) "
+            "prima dell'analisi."
+        )
 
     if not (
         0.0 <= low_percentile
@@ -811,19 +845,21 @@ def make_auto_binning_from_dataframe(
             "0 <= low_percentile < high_percentile <= 100."
         )
 
-    if padding_fraction < 0.0:
+    if (
+        not np.isfinite(padding_fraction)
+        or padding_fraction < 0.0
+    ):
         raise ValueError(
-            "padding_fraction must be non-negative."
+            "padding_fraction must be finite and non-negative."
         )
 
-    if min_bins < 2:
+    if (
+        isinstance(fine_grid_size, bool)
+        or not isinstance(fine_grid_size, (int, np.integer))
+        or fine_grid_size < 2
+    ):
         raise ValueError(
-            "min_bins must be at least 2."
-        )
-
-    if max_bins < min_bins:
-        raise ValueError(
-            "max_bins must be greater than or equal to min_bins."
+            "fine_grid_size must be an integer of at least 2."
         )
 
     data = get_clean_data(
@@ -836,36 +872,23 @@ def make_auto_binning_from_dataframe(
             f"Column {column!r} contains no finite values."
         )
 
-    data_min = float(
-        np.min(data)
-    )
-
-    data_max = float(
-        np.max(data)
-    )
+    data_min = float(np.min(data))
+    data_max = float(np.max(data))
 
     robust_min, robust_max = np.percentile(
         data,
-        [
-            low_percentile,
-            high_percentile,
-        ],
+        [low_percentile, high_percentile],
     )
 
-    robust_min = float(
-        robust_min
-    )
-
-    robust_max = float(
-        robust_max
-    )
-
+    robust_min = float(robust_min)
+    robust_max = float(robust_max)
     robust_width = robust_max - robust_min
 
-    if not np.isfinite(robust_width) or robust_width <= 1.0e-14:
-        centre = float(
-            np.mean(data)
-        )
+    if (
+        not np.isfinite(robust_width)
+        or robust_width <= 1.0e-14
+    ):
+        centre = float(np.mean(data))
 
         half_width = max(
             abs(centre) * 0.05,
@@ -897,9 +920,7 @@ def make_auto_binning_from_dataframe(
         )
 
     if xmax <= xmin:
-        centre = 0.5 * (
-            xmin + xmax
-        )
+        centre = 0.5 * (xmin + xmax)
 
         half_width = max(
             abs(centre) * 0.05,
@@ -909,71 +930,7 @@ def make_auto_binning_from_dataframe(
         xmin = centre - half_width
         xmax = centre + half_width
 
-    q25, q75 = np.percentile(
-        data,
-        [
-            25.0,
-            75.0,
-        ],
-    )
-
-    iqr = float(
-        q75 - q25
-    )
-
-    if iqr > 0.0:
-        target_bin_width = (
-            2.0
-            * iqr
-            / (data.size ** (1.0 / 3.0))
-        )
-    else:
-        standard_deviation = (
-            float(
-                np.std(
-                    data,
-                    ddof=1,
-                )
-            )
-            if data.size > 1
-            else 0.0
-        )
-
-        if standard_deviation > 0.0:
-            target_bin_width = (
-                3.5
-                * standard_deviation
-                / (data.size ** (1.0 / 3.0))
-            )
-        else:
-            target_bin_width = (
-                (xmax - xmin)
-                / float(min_bins)
-            )
-
-    if (
-        not np.isfinite(target_bin_width)
-        or target_bin_width <= 0.0
-    ):
-        target_bin_width = (
-            (xmax - xmin)
-            / float(min_bins)
-        )
-
-    nbins = int(
-        np.ceil(
-            (xmax - xmin)
-            / target_bin_width
-        )
-    )
-
-    nbins = int(
-        np.clip(
-            nbins,
-            min_bins,
-            max_bins,
-        )
-    )
+    nbins = HISTOGRAM_N_BINS
 
     edges = np.linspace(
         xmin,
@@ -983,14 +940,13 @@ def make_auto_binning_from_dataframe(
     )
 
     centers = 0.5 * (
-        edges[:-1]
-        + edges[1:]
+        edges[:-1] + edges[1:]
     )
 
     finegrid = np.linspace(
         xmin,
         xmax,
-        int(fine_grid_size),
+        fine_grid_size,
         dtype=float,
     )
 
@@ -1000,7 +956,7 @@ def make_auto_binning_from_dataframe(
             float(xmin),
             float(xmax),
         ),
-        "nbins": int(nbins),
+        "nbins": nbins,
         "edges": edges,
         "centers": centers,
         "bin_width": float(
@@ -1013,8 +969,7 @@ def make_auto_binning_from_dataframe(
         "data_min": data_min,
         "data_max": data_max,
         "protocol": (
-            "auto_percentile_padding_"
-            "freedman_diaconis"
+            "fixed_nbins_dynamic_range"
         ),
     }
 
@@ -7381,9 +7336,7 @@ def analyze_surface_masked(
             surface_df,
             "delta energy",
             binning=energy_binning,
-            x_scale_factor=x_scale_factor,
         )
-
     # ---------------------------------------------------------------
     # Theta fit:
     # performed on the masked DataFrame.
@@ -10513,7 +10466,7 @@ def find_optimal_lambda_forward(
     signal,
     kernel,
     xgrid,
-    lambda_min=1.0e-8,
+    lambda_min=1.0e-20,
     lambda_max=1.0e8,
     n_grid=41,
     n_iter=6,
@@ -10765,7 +10718,7 @@ def _objective(lambd, signal, kernel, xgrid, w_forward=1.0, w_rough=0.0,
 
 
 def find_optimal_lambda(signal, kernel, xgrid,
-                        lambda_min=1e-8, lambda_max=1e5,
+                        lambda_min=1e-20, lambda_max=1e5,
                         n_grid=21, n_iter=6, shrink=0.35,
                         w_forward=1.0, w_rough=0.0,
                         sigma_method="fit", fit_window=None,
@@ -10803,7 +10756,7 @@ def find_optimal_lambda_wiener(
     signal,
     kernel,
     xgrid,
-    lambda_min=1e-8,
+    lambda_min=1e-20,
     lambda_max=1e5,
     n_grid=15,
     n_iter=6,
@@ -10894,7 +10847,7 @@ def deconvolve_wiener(
     xgrid,
     lambd=None,
     auto_lambda=True,
-    lambda_min=1.0e-12,
+    lambda_min=1.0e-20,
     lambda_max=1.0e8,
     roughness_weight=0.0,
     return_info=False,
@@ -11296,7 +11249,7 @@ def deconvolutionFinal_with_air(
     lambd=None,
     lambda_method="forward",
     target_relative_residual=1.0e-3,
-    lambda_min=1.0e-12,
+    lambda_min=1.0e-20,
     lambda_max=1.0e8,
     roughness_weight=1.0e-2,
     sigma_method="fit",
@@ -15159,6 +15112,22 @@ def run_whole(file_vacuum, file_air, constant_parameters):
     # CONSTANTS
     # ============================================================
 
+    configure_histogram_binning(
+        constant_parameters
+    )
+    
+    nRows_value = constant_parameters.get("nRows")
+
+    if nRows_value is None:
+        nRows = None
+    else:
+        nRows = int(nRows_value)
+
+        if nRows <= 0:
+            raise ValueError(
+                "nRows deve essere un intero positivo oppure None."
+            )
+    
     ripple_filters = bool(
         constant_parameters["ripple_filters"]
     )
@@ -15269,8 +15238,6 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         if case_output_dir_value
         else None
     )
-
-
     print("\n" + "=" * 72)
     print("PLOT-SAVING DEBUG INSIDE run_whole")
     print("=" * 72)
@@ -15340,7 +15307,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         positions_scoring,
         tolerance,
         column_names,
-        nRows=100000,
+        nRows=nRows,
     )
 
     setup_air = setup_dataset(
@@ -15350,7 +15317,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         positions_scoring,
         tolerance,
         column_names,
-        nRows=100000,
+        nRows=nRows,
     )
 
     if setup_vacuum is None:
@@ -15528,6 +15495,31 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         maximum_step=40.0 / 2047.0,
     )
 
+    dx_previous = float(
+        np.mean(np.diff(xbin))
+    )
+
+    half_width = float(
+        np.max(np.abs(xbin))
+    )
+
+    n_half = int(
+        np.ceil(half_width / dx_previous)
+    )
+
+    dx_centered = half_width / n_half
+
+    xbin = (
+        np.arange(-n_half, n_half + 1, dtype=float)
+        * dx_centered
+    )
+
+    print("\n[WIENER GRID]")
+    print(f"Range: [{xbin[0]:.8f}, {xbin[-1]:.8f}] mm")
+    print(f"N punti: {xbin.size}")
+    print(f"Passo: {dx_centered:.10f} mm")
+    print(f"Coordinata centrale: {xbin[n_half]:.10f} mm")
+
     xpbin = make_global_analysis_grid(
         analysis_dataframes,
         columns=(
@@ -15584,13 +15576,20 @@ def run_whole(file_vacuum, file_air, constant_parameters):
             lambd=1.0e-10,
             make_plot=False,
         )
-
+    lambda_values = (
+        1e-8,
+        1e-10,
+        1e-12,
+        1e-14,
+        1e-16,
+        1e-18,
+    )
     for grid_name, test_grid in (
         ("Originale", xbin),
         ("Centrata", xbin_centered_test),
     ):
         for kernel_sigma in (7.794, 16.301):
-            for lambda_test in (1.0e-10, 0.1):
+            for lambda_test in lambda_values:
 
                 pdf_true = normalize_pdf(
                     np.exp(-0.5 * (test_grid / 6.30) ** 2),
@@ -15644,6 +15643,12 @@ def run_whole(file_vacuum, file_air, constant_parameters):
                     method="fit",
                     fit_window=None,
                 )
+                sigma_recovered_moment = measure_sigma(
+                    test_grid,
+                    pdf_recovered,
+                    method="moment",
+                    fit_window=None,
+                )
 
                 sigma_reconvolved = measure_sigma(
                     test_grid,
@@ -15668,7 +15673,8 @@ def run_whole(file_vacuum, file_air, constant_parameters):
                     "Lambda": lambda_test,
                     "Momento raw [mm2]": raw_second_moment,
                     "Massa negativa raw": raw_info["negative_mass"],
-                    "Sigma recuperata [mm]": sigma_recovered,
+                    "Sigma fit [mm]": sigma_recovered,
+                    "Sigma momento [mm]": sigma_recovered_moment,
                     "Sigma riconvoluta [mm]": sigma_reconvolved,
                     "Errore forward": forward_error,
                     "Errore sigma [%]": 100.0 * sigma_relative_error,
@@ -17878,73 +17884,93 @@ def _discover_outputs(
     overwrite_gz=False,
 ):
     """
-    Decompress all .23.gz files found in one case directory and return a map:
+    Individua i file .23/.23.gz senza decomprimerli.
 
+    Restituisce una mappa con le chiavi:
         vacuum_no_rf
         vacuum_rf
         air_no_rf
         air_rf
 
-    For the default classifier, particle is needed because:
-    - proton files are always treated as no-ripple-filter files;
-    - carbon files without 'noRippFilters' are treated as ripple-filter files.
-    """
+    Se esistono entrambe le versioni dello stesso file,
+    preferisce quella compressa .23.gz.
 
+    overwrite_gz è mantenuto per compatibilità con le
+    chiamate esistenti, ma non viene utilizzato.
+    """
     case_dir = Path(case_dir)
+
+    if not case_dir.is_dir():
+        raise NotADirectoryError(
+            f"Case directory does not exist: {case_dir}"
+        )
 
     candidates = (
         sorted(case_dir.glob("*.23"))
         + sorted(case_dir.glob("*.23.gz"))
     )
 
+    candidates = [
+        path
+        for path in candidates
+        if path.is_file()
+    ]
+
     if not candidates:
         raise FileNotFoundError(
             f"No .23/.23.gz files found in {case_dir}."
         )
 
-    output_map = {}
-    seen_gz_targets = set()
+    selected_files = {}
 
     for candidate in candidates:
+        # Serve soltanto per identificare due versioni
+        # dello stesso file. Non crea nulla su disco.
+        logical_path = (
+            candidate.with_suffix("")
+            if candidate.suffix.lower() == ".gz"
+            else candidate
+        )
 
-        if candidate.suffix.lower() == ".gz":
-            uncompressed = candidate.with_suffix("")
+        # I .gz vengono elaborati dopo i .23:
+        # quindi hanno la precedenza.
+        selected_files[logical_path] = candidate
 
-            if uncompressed in seen_gz_targets:
-                continue
+    output_map = {}
 
-            path = decompress_gz_file(
-                candidate,
-                overwrite=overwrite_gz,
-            )
-
-            seen_gz_targets.add(uncompressed)
-
-        else:
-            path = candidate
-
+    for logical_path, actual_path in sorted(
+        selected_files.items(),
+        key=lambda item: item[0].name,
+    ):
         if file_classifier is None:
+            # Il classificatore predefinito riceve il nome
+            # senza .gz, come nel precedente percorso.
             medium, has_rf = _classify_output_file(
-                path,
+                logical_path,
                 particle,
             )
         else:
-            # Mantiene la firma originale per un classificatore custom:
-            # file_classifier(path) -> (medium, has_ripple_filter)
-            medium, has_rf = file_classifier(path)
+            # Un classificatore custom riceve il file reale.
+            medium, has_rf = file_classifier(actual_path)
 
         key = f"{medium}_{'rf' if has_rf else 'no_rf'}"
 
-        if key in output_map and output_map[key] != path:
+        if key in output_map and output_map[key] != actual_path:
             raise RuntimeError(
                 f"Multiple files classified as {key} in {case_dir}: "
-                f"{output_map[key].name!r} and {path.name!r}."
+                f"{output_map[key].name!r} and "
+                f"{actual_path.name!r}."
             )
 
-        output_map[key] = path
+        # Restituisce il percorso del file realmente esistente,
+        # incluso il suffisso .gz quando presente.
+        output_map[key] = actual_path
+
+        print(
+            f"[INFO] Selected {key}: {actual_path.name}"
+        )
 
     return output_map
-
 
 def _normalise_scatterer_name(value):
     """Map the labels returned by run_whole to stable labels for batch plots."""
@@ -18679,81 +18705,6 @@ def _classify_output_file(output_path, particle):
 
     return medium, has_ripple_filter
 
-def _discover_outputs(
-    case_dir,
-    particle,
-    *,
-    file_classifier=None,
-    overwrite_gz=False,
-):
-    """
-    Decompress all .23.gz files found in one case directory and return a map:
-
-        vacuum_no_rf
-        vacuum_rf
-        air_no_rf
-        air_rf
-
-    For the default classifier, particle is needed because:
-    - proton files are always treated as no-ripple-filter files;
-    - carbon files without 'noRippFilters' are treated as ripple-filter files.
-    """
-
-    case_dir = Path(case_dir)
-
-    candidates = (
-        sorted(case_dir.glob("*.23"))
-        + sorted(case_dir.glob("*.23.gz"))
-    )
-
-    if not candidates:
-        raise FileNotFoundError(
-            f"No .23/.23.gz files found in {case_dir}."
-        )
-
-    output_map = {}
-    seen_gz_targets = set()
-
-    for candidate in candidates:
-
-        if candidate.suffix.lower() == ".gz":
-            uncompressed = candidate.with_suffix("")
-
-            if uncompressed in seen_gz_targets:
-                continue
-
-            path = decompress_gz_file(
-                candidate,
-                overwrite=overwrite_gz,
-            )
-
-            seen_gz_targets.add(uncompressed)
-
-        else:
-            path = candidate
-
-        if file_classifier is None:
-            medium, has_rf = _classify_output_file(
-                path,
-                particle,
-            )
-        else:
-            # Mantiene la firma originale per un classificatore custom:
-            # file_classifier(path) -> (medium, has_ripple_filter)
-            medium, has_rf = file_classifier(path)
-
-        key = f"{medium}_{'rf' if has_rf else 'no_rf'}"
-
-        if key in output_map and output_map[key] != path:
-            raise RuntimeError(
-                f"Multiple files classified as {key} in {case_dir}: "
-                f"{output_map[key].name!r} and {path.name!r}."
-            )
-
-        output_map[key] = path
-
-    return output_map
-
 
 def _normalise_scatterer_name(value):
     """Map the labels returned by run_whole to stable labels for batch plots."""
@@ -18997,23 +18948,121 @@ def run_whole_all_energies(
         wet_plots            : dict scatterer -> matplotlib Figure
     """
     _validate_base_parameters(base_parameters)
+    configure_histogram_binning(
+        base_parameters
+    )
 
     if run_single_case is None:
         run_single_case = run_whole
 
     root_dir = Path(root_dir).expanduser().resolve()
+
     roots = {
         "proton": root_dir / "PROTON",
         "carbon": root_dir / "CARBON",
     }
 
+    only = base_parameters.get("only")
+
+    if only is not None:
+        if not isinstance(only, str):
+            raise TypeError(
+                "Il parametro 'only' deve essere "
+                "una stringa oppure None."
+            )
+
+        only = only.strip()
+
+        if (
+            not only
+            or only in {".", ".."}
+            or "/" in only
+            or "\\" in only
+        ):
+            raise ValueError(
+                "'only' deve contenere il nome di un caso, "
+                "per esempio p030 o p030mm."
+            )
+
+    def case_selection_key(name):
+        normalized = name.strip().lower()
+
+        if normalized.endswith("mm"):
+            normalized = normalized[:-2]
+
+        return normalized
+
+    only_key = (
+        case_selection_key(only)
+        if only is not None
+        else None
+    )
+
+    # Individua i casi prima di leggere o decomprimere file.
+    selected_case_dirs = {}
+
+    for expected_particle, particle_root in roots.items():
+        folders = []
+
+        if particle_root.is_dir():
+            for case_dir in sorted(particle_root.iterdir()):
+                if not case_dir.is_dir():
+                    continue
+
+                if (
+                    only_key is not None
+                    and case_selection_key(case_dir.name)
+                    != only_key
+                ):
+                    continue
+
+                try:
+                    _parse_case_folder(case_dir.name)
+                except ValueError:
+                    continue
+
+                folders.append(case_dir)
+
+        selected_case_dirs[expected_particle] = folders
+
+    if only is not None:
+        matched_folders = [
+            folder
+            for folders in selected_case_dirs.values()
+            for folder in folders
+        ]
+
+        if not matched_folders:
+            raise FileNotFoundError(
+                f"Nessun caso valido corrisponde a {only!r} "
+                f"nelle cartelle PROTON/ o CARBON/ "
+                f"all'interno di {root_dir}."
+            )
+
+        print(
+            "\n[INFO] Analisi limitata ai casi:",
+            ", ".join(str(folder) for folder in matched_folders),
+        )
+    else:
+        print("\n[INFO] Analisi di tutti i casi disponibili.")
+
     case_metadata = []
     all_scatterer_tables = []
     errors = []
 
-    total_configurations = _count_planned_configurations(
-        root_dir
-    )
+    # Conta solo le configurazioni dei casi selezionati.
+    # Non apre e non decomprime i file.
+    total_configurations = 0
+
+    for expected_particle, folders in selected_case_dirs.items():
+        for case_dir in folders:
+            particle, _ = _parse_case_folder(case_dir.name)
+
+            if particle == expected_particle:
+                total_configurations += sum(
+                    1
+                    for _ in _required_output_keys(particle)
+                )
 
     completed_configurations = 0
 
@@ -19030,23 +19079,28 @@ def run_whole_all_energies(
     )
 
     for expected_particle, particle_root in roots.items():
-        if not particle_root.exists():
-            errors.append({
-                "case_folder": "",
-                "particle": expected_particle,
-                "range_mm": np.nan,
-                "configuration": "",
-                "stage": "discovery",
-                "error": f"Directory not found: {particle_root}",
-            })
+        if not particle_root.is_dir():
+            # Con --only, l'assenza della directory dell'altra
+            # specie non deve produrre un errore.
+            if only is None:
+                errors.append({
+                    "case_folder": "",
+                    "particle": expected_particle,
+                    "range_mm": np.nan,
+                    "configuration": "",
+                    "stage": "discovery",
+                    "error": (
+                        f"Directory not found: {particle_root}"
+                    ),
+                })
+
             continue
 
-        for case_dir in sorted(particle_root.iterdir()):
-            if not case_dir.is_dir():
-                continue
-
+        for case_dir in selected_case_dirs[expected_particle]:
             try:
-                particle, range_mm = _parse_case_folder(case_dir.name)
+                particle, range_mm = _parse_case_folder(
+                    case_dir.name
+                )
             except ValueError:
                 # Ignore unrelated directories without interrupting the batch.
                 continue
@@ -19211,6 +19265,7 @@ def run_whole_all_energies(
                     beam_parameters=beam_parameters,
                     ripple_filters=(configuration == "With ripple filter"),
                 )
+                params["nRows"] = base_parameters.get("nRows")
 
                 batch_output_root = Path(
                     base_parameters.get(
@@ -19716,6 +19771,9 @@ def run_whole_all_energiee(
                     beam_parameters=beam_parameters,
                     ripple_filters=(configuration == "With ripple filter"),
                 )
+                params["histogram_n_bins"] = base_parameters[
+                        "histogram_n_bins"
+                    ]
 
                 _notify_progress(
                     progress_callback,

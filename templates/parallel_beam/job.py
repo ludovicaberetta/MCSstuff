@@ -35,6 +35,21 @@ def save_figure(fig: Any, path: Path, dpi: int = 180) -> bool:
     plt.close(fig)
     return True
 
+def case_folder_name(value: str) -> str:
+    """Accept one folder name, not path."""
+    name = value.strip()
+
+    if (
+        not name
+        or name in {".", ".."}
+        or "/" in name
+        or "\\" in name
+        ):
+        raise argparse.ArgumentTypeError(
+            "--only requires the name of a folder, suche as p030"
+        )
+    return name
+
 
 def write_batch_summaries(summary: dict[str, Any], output_root: Path) -> None:
     """Write the global tables returned by run_whole_all_energies."""
@@ -159,6 +174,24 @@ def main() -> int:
             "with status 1 if at least one case failed."
         ),
     )
+    parser.add_argument(
+        "--nRows",
+        type = int,
+        default = None,
+        help = (
+            "Total number of rows to be read in the MyLip.load_data"
+            "If omitted, the whole dataset is read"
+        ),
+    )
+
+    parser.add_argument(
+        "--only",
+        type = case_folder_name,
+        default = None, 
+        help = (
+            "Analyzing only the case folder. If omitted, analyze all cases"
+        )
+    )
 
     args = parser.parse_args()
 
@@ -186,6 +219,16 @@ def main() -> int:
 
     if not isinstance(base_parameters, dict):
         raise TypeError("The parameters JSON must contain one JSON object.")
+
+    base_parameters["nRows"]=args.nRows
+    if base_parameters["nRows"] is None:
+        print("[INFO] The whole dataset is read.")
+    else:
+        print(
+            "[INFO] Only: "
+            f"{base_parameters['nRows']} rows are read."
+        )
+    base_parameters["only"] = args.only
 
     output_root.mkdir(parents=True, exist_ok=True)
 
