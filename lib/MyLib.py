@@ -4508,6 +4508,8 @@ def apply_dataset_cleaning_cut(
     theta_percentile_min=None,
     theta_percentile_max=None,
     ellipse_peak_fraction=None,
+    angle_percentile_min=None,
+    angle_percentile_max=None
 ):
     """
     Apply exactly one final cleaning cut.
@@ -4666,11 +4668,122 @@ def apply_dataset_cleaning_cut(
             f"kept {len(df_theta_cleaned)}/{len(df)} rows."
         )
 
-        return df_theta_cleaned
+    # ============================================================
+    # ANGLE PERCENTILE CUT ONLY
+    # ============================================================   
+
+    if cut_mode == "angle_percentile":
+        
+        missing_columns = [
+            column
+            for column in ("x_prime", "y_prime")
+            if column not in df.columns
+        ]
+
+        if missing_columns:
+            raise KeyError(
+                "Missing columns required when "
+                "cut_mode='angle_percentile': "
+                f"{missing_columns}."
+            )
+
+        if angle_percentile_min is None:
+            raise ValueError(
+                "angle_percentile_min is required when "
+                "cut_mode='angle_percentile'."
+            )
+
+        if angle_percentile_max is None:
+            raise ValueError(
+                "angle_percentile_max is required when "
+                "cut_mode='angle_percentile'."
+            )
+
+        angle_percentile_min = float(
+            angle_percentile_min
+        )
+
+        angle_percentile_max = float(
+            angle_percentile_max
+        )
+
+        if (
+            not np.isfinite(angle_percentile_min)
+            or not np.isfinite(angle_percentile_max)
+            or not (
+                0.0
+                <= angle_percentile_min
+                < angle_percentile_max
+                <= 100.0
+            )
+        ):
+            raise ValueError(
+                "Angle percentiles must be finite and satisfy "
+                "0 <= min < max <= 100."
+            )
+
+        xp_values = pd.to_numeric(
+            df["x_prime"],
+            errors="coerce",
+        ).to_numpy(dtype=float)
+
+        yp_values = pd.to_numeric(
+            df["y_prime"],
+            errors="coerce",
+        ).to_numpy(dtype=float)
+
+        finite_mask = (
+            np.isfinite(xp_values)
+            & np.isfinite(yp_values)
+        )
+
+        if not np.any(finite_mask):
+            return df.iloc[0:0].copy()
+
+        xp_lower, xp_upper = np.percentile(
+            xp_values[finite_mask],
+            [
+                angle_percentile_min,
+                angle_percentile_max,
+            ],
+        )
+
+        yp_lower, yp_upper = np.percentile(
+            yp_values[finite_mask],
+            [
+                angle_percentile_min,
+                angle_percentile_max,
+            ],
+        )
+
+        keep_mask = (
+            finite_mask
+            & (xp_values >= xp_lower)
+            & (xp_values <= xp_upper)
+            & (yp_values >= yp_lower)
+            & (yp_values <= yp_upper)
+        )
+
+        df_angle_cleaned = df.loc[
+            keep_mask
+        ].copy()
+
+        print(
+            f"Angular percentile cut: "
+            f"[{angle_percentile_min:.3f}%, "
+            f"{angle_percentile_max:.3f}%] | "
+            f"x_prime range: "
+            f"[{xp_lower:.6g}, {xp_upper:.6g}] mrad | "
+            f"y_prime range: "
+            f"[{yp_lower:.6g}, {yp_upper:.6g}] mrad | "
+            f"kept {len(df_angle_cleaned)}/{len(df)} rows."
+        )
+
+        return df_angle_cleaned
 
     raise ValueError(
         f"Unsupported cut_mode={cut_mode!r}. "
-        "Use 'ellipse' or 'theta'."
+        "Use 'ellipse', 'theta' or 'angle_percentile'."
     )
 
 
@@ -5323,6 +5436,8 @@ def analyze_dataset(
     theta_percentile_min=0.0,
     theta_percentile_max=99.0,
     ellipse_peak_fraction=0.1,
+    angle_percentile_min=0.0,
+    angle_percentile_max=99.0,
 ):
     """
     Analyze one dataset across all scoring surfaces.
@@ -5439,6 +5554,9 @@ def analyze_dataset(
     ellipse_peak_fraction = float(
         ellipse_peak_fraction
     )
+
+    angle_percentile_max = float(angle_percentile_max)
+    angle_percentile_min = float(angle_percentile_min)
 
     if cleaning_cut_mode == "theta":
         if (
@@ -5578,6 +5696,12 @@ def analyze_dataset(
             ellipse_peak_fraction=(
                 ellipse_peak_fraction
             ),
+            angle_percentile_max=(
+                angle_percentile_max
+            ),
+            angle_percentile_min=(
+                angle_percentile_min
+            )
         )
 
         print(
@@ -11539,6 +11663,14 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         "ellipse_peak_fraction",
         0.1,
     )
+    angle_percentile_min = constant_parameters.get(
+        "angle_percentile_min",
+        0.0,
+    )
+    angle_percentile_max = constant_parameters.get(
+        "angle_percentile_max",
+        99.0,
+    )
 
     save_plots = bool(
         constant_parameters.get(
@@ -11718,6 +11850,8 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         theta_percentile_min=theta_percentile_min,
         theta_percentile_max=theta_percentile_max,
         ellipse_peak_fraction=ellipse_peak_fraction,
+        angle_percentile_min=angle_percentile_min,
+        angle_percentile_max=angle_percentile_max
     )
 
     # ============================================================
@@ -11746,7 +11880,9 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         cleaning_cut_mode=cleaning_cut_mode,
         theta_percentile_min=theta_percentile_min,
         theta_percentile_max=theta_percentile_max,
-        ellipse_peak_fraction=ellipse_peak_fraction
+        ellipse_peak_fraction=ellipse_peak_fraction,
+        angle_percentile_min=angle_percentile_min,
+        angle_percentile_max=angle_percentile_max
     )
 
     if save_plots and case_output_dir is not None:
