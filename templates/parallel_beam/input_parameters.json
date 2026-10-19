@@ -50,5 +50,7 @@
     "delta_yp": "delta_yp",
     "delta_theta": "delta_theta",
     "delta_energy": "delta_energy"
-  }
+  },
+  "build_interactive_outputs": false,
+  "compact_batch_result": true
 }
