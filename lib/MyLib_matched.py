@@ -19259,7 +19259,8 @@ def run_analysis_simulations(
     xpbin,
     z0,
     sigma_0_angle,
-    sigma_0_space,
+    sigma_0_space_x,
+    sigma_0_space_y,
     sigma_0_theta,
     positions_scoring_mm,
     scatterer_models,
@@ -19269,8 +19270,8 @@ def run_analysis_simulations(
 
     sigma_meas_xp = np.insert(np.asarray([row["sigma_xp"] for row in results_filtered], dtype=float), 0, sigma_0_angle)
     sigma_meas_yp = np.insert(np.asarray([row["sigma_yp"] for row in results_filtered], dtype=float), 0, sigma_0_angle)
-    sigma_meas_x = np.insert(np.asarray([row["sigma_x"] for row in results_filtered], dtype=float), 0, sigma_0_space)
-    sigma_meas_y = np.insert(np.asarray([row["sigma_y"] for row in results_filtered], dtype=float), 0, sigma_0_space)
+    sigma_meas_x = np.insert(np.asarray([row["sigma_x"] for row in results_filtered], dtype=float), 0, sigma_0_space_x)
+    sigma_meas_y = np.insert(np.asarray([row["sigma_y"] for row in results_filtered], dtype=float), 0, sigma_0_space_y)
     sigma_meas_theta = np.insert(np.asarray([row["sigma_theta"] for row in results_filtered], dtype=float), 0, sigma_0_theta)
     expected_n = positions_scoring_mm.size + 1
     if any(values.size != expected_n for values in (sigma_meas_xp, sigma_meas_yp, sigma_meas_x, sigma_meas_y)):
@@ -19278,8 +19279,16 @@ def run_analysis_simulations(
 
     methods = {}
     plane_inputs = {
-        "xp": (sigma_meas_xp, sigma_meas_x),
-        "yp": (sigma_meas_yp, sigma_meas_y),
+        "xp": (
+            sigma_meas_xp,
+            sigma_meas_x,
+            sigma_0_space_x,
+        ),
+        "yp": (
+            sigma_meas_yp,
+            sigma_meas_y,
+            sigma_0_space_y,
+        ),
     }
 
     for plane in ("xp", "yp"):
@@ -19290,12 +19299,16 @@ def run_analysis_simulations(
         print("Point-like sigma [mrad]:", model["sigma_scatt_angle"])
         print("Distributed segments:", model["distributed_segments"])
 
-        sigma_angle, sigma_space = plane_inputs[plane]
+        (
+            sigma_angle,
+            sigma_space,
+            sigma_source_space,
+        ) = plane_inputs[plane]
         methods[plane] = run_air_methods_simulations(
             z_kicks=model["z_scatt"],
             sigma_kicks_angle=model["sigma_scatt_angle"],
             distributed_segments=model["distributed_segments"],
-            sigma0_space=sigma_0_space,
+            sigma0_space=sigma_source_space,
             sigma0_angle=sigma_0_angle,
             sigma_meas_angle=sigma_angle,
             sigma_meas_space=sigma_space,
@@ -20186,7 +20199,8 @@ def run_whole_simulations(file, constant_parameters):
     tolerance = float(constant_parameters["tolerance"])
     rest_energy = float(constant_parameters["rest_energy"])
     kinetic_energy = float(constant_parameters["kinetic_energy"])
-    FWHM_0= float(constant_parameters["FWHM_0"])
+    FWHM_0_x= float(constant_parameters["FWHM_0_x"])
+    FWHM_0_y= float(constant_parameters["FWHM_0_y"])
     sigma_0_angle = float(constant_parameters["sigma_0_angle"])
     sigma_0_theta = float(constant_parameters["sigma_0_theta"])
     z0 = float(constant_parameters["z0"])
@@ -20254,10 +20268,12 @@ def run_whole_simulations(file, constant_parameters):
     #    )[0]
     #)
 
-    sigma_0_space = FWHM_0 / (
-        2.0 * np.sqrt(
-            2.0 * np.log(2.0)
-        )
+    sigma_0_space_x = FWHM_0_x / (
+        2.0 * np.sqrt(2.0 * np.log(2.0))
+    )
+
+    sigma_0_space_y = FWHM_0_y / (
+        2.0 * np.sqrt(2.0 * np.log(2.0))
     )
 
     scatterer_table = validate_scatterer_table(
@@ -20519,7 +20535,8 @@ def run_whole_simulations(file, constant_parameters):
         xpbin=xpbin,
         z0=z0,
         sigma_0_angle=sigma_0_angle,
-        sigma_0_space=sigma_0_space,
+        sigma_0_space_x=sigma_0_space_x,
+        sigma_0_space_y=sigma_0_space_y,
         sigma_0_theta=sigma_0_theta,
         positions_scoring_mm=positions_scoring_mm,
         scatterer_models=scatterer_models,
