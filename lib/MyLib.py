@@ -5536,10 +5536,11 @@ def analyze_dataset(
     if cleaning_cut_mode not in (
         "ellipse",
         "theta",
+        "angle_percentile"
     ):
         raise ValueError(
             "cleaning_cut_mode must be "
-            "'ellipse' or 'theta'."
+            "'ellipse', 'theta', or 'angle_percentile'."
         )
 
     theta_percentile_min = float(
@@ -5577,6 +5578,16 @@ def analyze_dataset(
                 "ellipse_peak_fraction must satisfy "
                 "0 < ellipse_peak_fraction < 1."
             )
+        
+    if cleaning_cut_mode == "angle_percentile":
+        if (
+            angle_percentile_max <= 0.0
+            or angle_percentile_min >= 1.0
+        ):
+            raise ValueError(
+                "Angle percentile limits must satisfy"
+                "0 < angle_percentile_min < angle_percentile_max < 1."
+            )
 
     results_original = []
     results_filtered = []
@@ -5610,6 +5621,13 @@ def analyze_dataset(
         print(
             "Ellipse peak fraction: "
             f"{ellipse_peak_fraction:.6g}"
+        )
+
+    elif cleaning_cut_mode == "angle_percentile":
+        print(
+            "Angle percentile range: "
+            f"{angle_percentile_min:.2f}% "
+            f"to {angle_percentile_max:.2f}%"
         )
 
     print(
@@ -5917,6 +5935,15 @@ def analyze_dataset(
             statistics_masked[
                 "ellipse_peak_fraction"
             ] = ellipse_peak_fraction
+
+        elif cleaning_cut_mode == "angle_percentile":
+            statistics_masked[
+                "angle_percentile_min"
+            ] = angle_percentile_min
+
+            statistics_masked[
+                "angle_percentile_max"
+            ] = angle_percentile_max
 
         results_original.append(
             statistics_original.copy()
