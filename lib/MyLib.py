@@ -4667,6 +4667,7 @@ def apply_dataset_cleaning_cut(
             f"{theta_upper:.6g}] | "
             f"kept {len(df_theta_cleaned)}/{len(df)} rows."
         )
+        return df_theta_cleaned
     # ============================================================
     # ANGLE PERCENTILE CUT ONLY
     # ============================================================   
@@ -4784,7 +4785,6 @@ def apply_dataset_cleaning_cut(
         f"Unsupported cut_mode={cut_mode!r}. "
         "Use 'ellipse' or 'theta' or 'angle_percentile'."
     )
-
 
 def calculate_variations(df, z_position, label):
     surface_df = df[df['scoring_surface'] == z_position].copy()
