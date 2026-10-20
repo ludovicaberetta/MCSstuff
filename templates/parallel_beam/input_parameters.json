@@ -38,6 +38,8 @@
   "theta_percentile_min": 0.0,
   "theta_percentile_max": 99.0,
   "ellipse_peak_fraction": 0.1,
+  "angle_percentile_min": 0.0,
+  "angle_percentile_max": 99.0,
 
   "columns": {
     "x - coordinate": "x",
@@ -50,5 +52,7 @@
     "delta_yp": "delta_yp",
     "delta_theta": "delta_theta",
     "delta_energy": "delta_energy"
-  }
+  },
+  "build_interactive_outputs": false,
+  "compact_batch_result": true
 }
