@@ -9123,6 +9123,90 @@ def run_analysis(
         sigma_meas_theta_air,
     )
 
+def mean_energy_loss(df, column):
+    """
+    Arithmetic mean of finite values in df[column].
+
+    The result has the same physical units as the input column.
+    Assumes equal statistical weight for all rows.
+    """
+    if column not in df.columns:
+        raise KeyError(
+            f"Column {column!r} is missing."
+        )
+
+    values = pd.to_numeric(
+        df[column],
+        errors="coerce",
+    ).to_numpy(dtype=float)
+
+    finite_mask = np.isfinite(values)
+
+    if not np.any(finite_mask):
+        return float("nan")
+
+    return float(
+        np.mean(
+            values,
+            where=finite_mask,
+            dtype=np.float64,
+        )
+    )
+
+def mean_energy_loss_at_surface(
+    df_variations,
+    z_position,
+    column="delta_energy",
+):
+    """
+    Mean differential energy loss for one scoring surface.
+
+    z_position uses the same units as scoring_surface.
+    """
+    required_columns = ("scoring_surface", column)
+
+    missing_columns = [
+        name
+        for name in required_columns
+        if name not in df_variations.columns
+    ]
+
+    if missing_columns:
+        raise KeyError(
+            f"Missing columns: {missing_columns}."
+        )
+
+    scoring_values = pd.to_numeric(
+        df_variations["scoring_surface"],
+        errors="coerce",
+    ).to_numpy(dtype=float)
+
+    surface_mask = np.isclose(
+        scoring_values,
+        float(z_position),
+        rtol=0.0,
+        atol=1.0e-9,
+    )
+
+    if not np.any(surface_mask):
+        raise ValueError(
+            "No differential energy-loss data found at "
+            f"scoring_surface={z_position}."
+        )
+
+    # Select only the column needed, not the entire dataframe.
+    mean_loss = mean_energy_loss(
+        df_variations.loc[surface_mask, [column]],
+        column,
+    )
+
+    if not np.isfinite(mean_loss):
+        raise ValueError(
+            "No finite differential energy-loss values at "
+            f"scoring_surface={z_position}."
+        )
+
+    return mean_loss
 
 def calc_equivalent_x(
     angle_xp_mrad,
@@ -9141,94 +9225,375 @@ def calc_equivalent_x(
     gamma,
     n_iter=8,
     return_history=False,
-    landau_output_unit="mm" 
+    landau_output_unit="mm",
+    *,
+    mean_delta_energy,
+    rho_water=1.0,
+    density_effect_delta=0.0,
 ):
+    """
+    Equivalent water thickness from:
+        1. MCS in x_prime, y_prime and theta.
+        2. Landau most-probable energy loss.
+        3. Mean energy loss using Bethe-Bloch at fixed energy.
+
+    Units
+    -----
+    angle_*_mrad : mrad
+    pc : MeV, meaning momentum multiplied by c
+    beta, gamma : dimensionless, evaluated at the reference energy
+    z : projectile charge number
+    X0 : water radiation length, in the desired MCS length unit
+    delta_energy : Landau MPV energy loss, MeV per projectile
+    mean_delta_energy : mean energy loss, MeV per projectile
+    K : MeV cm^2 / g
+    Z_A_water : target Z/A in the convention used with K
+    rest_energy_electron : electron rest energy, MeV
+    I : water mean excitation energy, MeV
+    j : Landau constant
+    rho_water : g/cm^3
+    density_effect_delta : dimensionless density-effect correction
+
+    Returns
+    -------
+    By default:
+        (
+            equivalent_x_MCS_xp,
+            equivalent_x_MCS_yp,
+            equivalent_x_MCS_theta,
+            x_equivalent_landau,
+            x_equivalent_bethe,
+        )
+
+    The two energy-based thicknesses use landau_output_unit,
+    retained under its old name for compatibility.
+
+    Bethe-Bloch uses constant stopping power, not integration
+    through the energy loss.
+    """
     angle_xp_mrad = float(angle_xp_mrad)
     angle_yp_mrad = float(angle_yp_mrad)
     angle_theta_mrad = float(angle_theta_mrad)
+
     pc = float(pc)
     beta = float(beta)
+    gamma = float(gamma)
     z = float(z)
     X0 = float(X0)
+
     delta_energy = float(delta_energy)
+    mean_delta_energy = float(mean_delta_energy)
+
     K = float(K)
     Z_A_water = float(Z_A_water)
     rest_energy_electron = float(rest_energy_electron)
     I = float(I)
     j = float(j)
-    gamma = float(gamma)
 
+    rho_water = float(rho_water)
+    density_effect_delta = float(density_effect_delta)
 
-    theta_xp = angle_xp_mrad * 1e-3
-    theta_yp = angle_yp_mrad * 1e-3
-    theta = angle_theta_mrad * 1e-3
+    input_values = [
+        angle_xp_mrad,
+        angle_yp_mrad,
+        angle_theta_mrad,
+        pc,
+        beta,
+        gamma,
+        z,
+        X0,
+        delta_energy,
+        mean_delta_energy,
+        K,
+        Z_A_water,
+        rest_energy_electron,
+        I,
+        j,
+        rho_water,
+        density_effect_delta,
+    ]
 
+    if not np.all(np.isfinite(input_values)):
+        raise ValueError(
+            "All input parameters must be finite."
+        )
+
+    if not 0.0 < beta < 1.0 or gamma <= 1.0:
+        raise ValueError(
+            "Require 0 < beta < 1 and gamma > 1."
+        )
+
+    gamma_expected = 1.0 / np.sqrt(1.0 - beta**2)
+
+    if not np.isclose(
+        gamma,
+        gamma_expected,
+        rtol=1.0e-4,
+        atol=0.0,
+    ):
+        raise ValueError(
+            "beta and gamma must refer to the same energy."
+        )
+
+    if (
+        pc <= 0.0
+        or z == 0.0
+        or X0 <= 0.0
+        or K <= 0.0
+        or Z_A_water <= 0.0
+        or rest_energy_electron <= 0.0
+        or I <= 0.0
+        or rho_water <= 0.0
+        or density_effect_delta < 0.0
+    ):
+        raise ValueError(
+            "Invalid physical parameters: require positive "
+            "pc, X0, K, Z_A_water, electron rest energy, I "
+            "and rho_water; nonzero z; non-negative "
+            "density_effect_delta."
+        )
+
+    if delta_energy < 0.0 or mean_delta_energy < 0.0:
+        raise ValueError(
+            "Energy losses must be non-negative."
+        )
+
+    n_iter_int = int(n_iter)
+
+    if n_iter_int < 0 or n_iter_int != n_iter:
+        raise ValueError(
+            "n_iter must be a non-negative integer."
+        )
+
+    output_unit = str(landau_output_unit).strip().lower()
+
+    if output_unit not in ("mm", "cm"):
+        raise ValueError(
+            "landau_output_unit must be 'mm' or 'cm'."
+        )
+
+    energy_length_factor = (
+        10.0 if output_unit == "mm" else 1.0
+    )
+
+    # ------------------------------------------------------------
+    # MCS: same iterative model as the existing function.
+    # ------------------------------------------------------------
     def solve_equivalent_x_mcs(theta_rad):
-        if theta_rad < 0:
-            theta_rad = abs(theta_rad)
+        theta_rad = abs(float(theta_rad))
 
-        x_eq = ((theta_rad * beta * pc) / (13.6 * abs(z)))**2 * X0
+        if theta_rad == 0.0:
+            return 0.0, [0.0]
+
+        x_eq = (
+            (
+                theta_rad * beta * pc
+                / (13.6 * abs(z))
+            ) ** 2
+            * X0
+        )
+
         history = [x_eq]
 
-        for _ in range(int(n_iter)):
-            arg = max((x_eq * z**2) / (X0 * beta**2), 1e-30)
+        for _ in range(n_iter_int):
+            arg = max(
+                x_eq * z**2 / (X0 * beta**2),
+                1.0e-30,
+            )
+
             corr = 1.0 + 0.038 * np.log(arg)
 
-            if corr <= 1e-12:
-                corr = 1e-12
+            if corr <= 1.0e-12:
+                raise ValueError(
+                    "MCS logarithmic correction is non-positive "
+                    "or too small: check model validity."
+                )
 
-            x_eq = ((theta_rad * beta * pc) / (13.6 * abs(z) * corr))**2 * X0
+            x_eq = (
+                (
+                    theta_rad * beta * pc
+                    / (13.6 * abs(z) * corr)
+                ) ** 2
+                * X0
+            )
+
             history.append(x_eq)
 
         return x_eq, history
 
-    equivalent_x_MCS_xp, history_MCS_xp = solve_equivalent_x_mcs(theta_xp)
-    equivalent_x_MCS_yp, history_MCS_yp = solve_equivalent_x_mcs(theta_yp)
-    equivalent_x_MCS_theta, history_MCS_theta = solve_equivalent_x_mcs(theta)
-
-    csi = (K / 2.0) * Z_A_water * (z**2 / beta**2)
-
-    term_const = (
-        np.log((2.0 * rest_energy_electron * beta**2 * gamma**2) / I)
-        + j
-        - beta**2
+    equivalent_x_MCS_xp, history_MCS_xp = (
+        solve_equivalent_x_mcs(angle_xp_mrad * 1.0e-3)
     )
 
-    x_landau_cm = delta_energy / (csi * term_const)
-    history_Landau = [x_landau_cm]
+    equivalent_x_MCS_yp, history_MCS_yp = (
+        solve_equivalent_x_mcs(angle_yp_mrad * 1.0e-3)
+    )
 
-    for _ in range(int(n_iter)):
-        xi = csi * x_landau_cm
-        log_arg = max(xi / I, 1e-30)
+    equivalent_x_MCS_theta, history_MCS_theta = (
+        solve_equivalent_x_mcs(angle_theta_mrad * 1.0e-3)
+    )
 
-        denom = csi * (term_const + np.log(log_arg))
-        if denom <= 1e-30:
-            denom = 1e-30
+    # ------------------------------------------------------------
+    # Landau MPV inversion.
+    # csi is energy-loss scale per cm: MeV/cm.
+    # ------------------------------------------------------------
+    csi = (
+        (K / 2.0)
+        * Z_A_water
+        * rho_water
+        * z**2
+        / beta**2
+    )
 
-        x_landau_cm = delta_energy / denom
-        history_Landau.append(x_landau_cm)
+    term_const = (
+        np.log(
+            2.0
+            * rest_energy_electron
+            * beta**2
+            * gamma**2
+            / I
+        )
+        + j
+        - beta**2
+        - density_effect_delta
+    )
 
-    if landau_output_unit.lower() == "mm":
-        x_equivalent_landau = x_landau_cm * 10.0
-    elif landau_output_unit.lower() == "cm":
-        x_equivalent_landau = x_landau_cm
+    if delta_energy == 0.0:
+        x_landau_cm = 0.0
+        history_Landau = [0.0]
+
     else:
-        raise ValueError("landau_output_unit deve essere 'mm' oppure 'cm'")
+        if term_const <= 0.0:
+            raise ValueError(
+                "Non-positive initial Landau denominator."
+            )
+
+        x_landau_cm = delta_energy / (csi * term_const)
+        history_Landau = [x_landau_cm]
+
+        for _ in range(n_iter_int):
+            xi = csi * x_landau_cm
+
+            denom = csi * (
+                term_const + np.log(xi / I)
+            )
+
+            if not np.isfinite(denom) or denom <= 0.0:
+                raise ValueError(
+                    "Invalid Landau inversion denominator: "
+                    "check inputs and model validity."
+                )
+
+            x_landau_cm = delta_energy / denom
+            history_Landau.append(x_landau_cm)
+
+    # ------------------------------------------------------------
+    # Bethe-Bloch: fixed-energy mean stopping power.
+    # Projectile rest energy follows from pc = beta*gamma*M*c^2.
+    # ------------------------------------------------------------
+    projectile_rest_energy = pc / (beta * gamma)
+
+    mass_ratio = (
+        rest_energy_electron / projectile_rest_energy
+    )
+
+    t_max = (
+        2.0
+        * rest_energy_electron
+        * beta**2
+        * gamma**2
+        / (
+            1.0
+            + 2.0 * gamma * mass_ratio
+            + mass_ratio**2
+        )
+    )
+
+    bethe_log_argument = (
+        2.0
+        * rest_energy_electron
+        * beta**2
+        * gamma**2
+        * t_max
+        / I**2
+    )
+
+    bethe_bracket = (
+        0.5 * np.log(bethe_log_argument)
+        - beta**2
+        - density_effect_delta / 2.0
+    )
+
+    stopping_power_water = (
+        K
+        * Z_A_water
+        * rho_water
+        * z**2
+        / beta**2
+        * bethe_bracket
+    )
+
+    if (
+        not np.isfinite(stopping_power_water)
+        or stopping_power_water <= 0.0
+    ):
+        raise ValueError(
+            "Bethe-Bloch returned non-positive or non-finite "
+            "stopping power. Check units and validity range."
+        )
+
+    x_bethe_cm = (
+        mean_delta_energy / stopping_power_water
+    )
+
+    x_equivalent_landau = (
+        x_landau_cm * energy_length_factor
+    )
+
+    x_equivalent_bethe = (
+        x_bethe_cm * energy_length_factor
+    )
 
     if return_history:
         return {
             "equivalent_x_MCS_xp": equivalent_x_MCS_xp,
             "equivalent_x_MCS_yp": equivalent_x_MCS_yp,
             "equivalent_x_MCS_theta": equivalent_x_MCS_theta,
+
             "x_equivalent_landau": x_equivalent_landau,
+            "x_equivalent_bethe": x_equivalent_bethe,
+
             "history_MCS_xp": history_MCS_xp,
             "history_MCS_yp": history_MCS_yp,
+            "history_MCS_theta": history_MCS_theta,
             "history_Landau": history_Landau,
+
             "x_landau_cm": x_landau_cm,
+            "x_bethe_cm": x_bethe_cm,
+
+            "delta_energy_mpv_MeV": delta_energy,
+            "mean_delta_energy_MeV": mean_delta_energy,
+
+            "stopping_power_water_MeV_per_cm": (
+                stopping_power_water
+            ),
+
+            "projectile_rest_energy_MeV": (
+                projectile_rest_energy
+            ),
+
+            "T_max_MeV": t_max,
+            "energy_thickness_unit": output_unit,
+            "bethe_method": "constant_stopping_power",
         }
 
-    return equivalent_x_MCS_xp, equivalent_x_MCS_yp, equivalent_x_MCS_theta, x_equivalent_landau
-
+    return (
+        equivalent_x_MCS_xp,
+        equivalent_x_MCS_yp,
+        equivalent_x_MCS_theta,
+        x_equivalent_landau,
+        x_equivalent_bethe,
+    )
 
 def _build_air_segments(
     sigma_air_permm,
@@ -12499,6 +12864,47 @@ def run_whole(file_vacuum, file_air, constant_parameters):
     # EQUIVALENT THICKNESS: AIR
     # ============================================================
 
+    if len(positions_scoring) < 4:
+        raise ValueError(
+            "At least four scoring surfaces are required."
+        )
+
+    mean_energy_window = mean_energy_loss_at_surface(
+        surface_data_masked_variations_vacuum,
+        positions_scoring[0],
+    )
+
+    mean_energy_nozzle = mean_energy_loss_at_surface(
+        surface_data_masked_variations_vacuum,
+        positions_scoring[1],
+    )
+
+    mean_energy_air_60cm = mean_energy_loss_at_surface(
+        surface_data_masked_variations_air,
+        positions_scoring[2],
+    )
+
+    mean_energy_air_100cm = mean_energy_loss_at_surface(
+        surface_data_masked_variations_air,
+        positions_scoring[3],
+    )
+
+    print("\n========== MEAN ENERGY LOSSES ==========")
+    print(
+        f"Vacuum window: {mean_energy_window:.6g} MeV"
+    )
+    print(
+        f"Nozzle / nozzle + RF: "
+        f"{mean_energy_nozzle:.6g} MeV"
+    )
+    print(
+        f"60 cm air: {mean_energy_air_60cm:.6g} MeV"
+    )
+    print(
+        f"100 cm air: {mean_energy_air_100cm:.6g} MeV"
+    )
+    print("========================================\n")
+    
     air_delta_xp = dataframe_std[
         "STD(delta xp) Air"
     ].to_numpy(dtype=float)
@@ -12558,6 +12964,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         equivalent_x_MCS_air_100cm_yp,
         equivalent_x_MCS_air_100cm_theta,
         x_equivalent_landau_air_100cm,
+        x_equivalent_bethe_air_100cm
     ) = calc_equivalent_x(
         delta_xp_air_100cm,
         delta_yp_air_100cm,
@@ -12573,6 +12980,8 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         I,
         j,
         gamma,
+        mean_delta_energy=mean_energy_air_100cm
+
     )
 
     (
@@ -12580,6 +12989,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         equivalent_x_MCS_air_60cm_yp,
         equivalent_x_MCS_air_60cm_theta,
         x_equivalent_landau_air_60cm,
+        x_equivalent_bethe_air_60cm
     ) = calc_equivalent_x(
         delta_xp_air_60cm,
         delta_yp_air_60cm,
@@ -12595,6 +13005,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         I,
         j,
         gamma,
+        mean_delta_energy=mean_energy_air_60cm
     )
 
     # ============================================================
@@ -12683,6 +13094,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         equivalent_x_MCS_window_yp,
         equivalent_x_MCS_window_theta,
         x_equivalent_landau_window,
+        x_equivalent_bethe_window
     ) = calc_equivalent_x(
         window_angle_std_xp,
         window_angle_std_yp,
@@ -12698,6 +13110,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         I,
         j,
         gamma,
+        mean_delta_energy=mean_energy_window
     )
 
     (
@@ -12705,6 +13118,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         equivalent_x_MCS_nozzle_yp,
         equivalent_x_MCS_nozzle_theta,
         x_equivalent_landau_nozzle,
+        x_equivalent_bethe_nozzle
     ) = calc_equivalent_x(
         nozzle_angle_std_xp,
         nozzle_angle_std_yp,
@@ -12720,6 +13134,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         I,
         j,
         gamma,
+        mean_delta_energy=mean_energy_nozzle
     )
 
     # ============================================================
@@ -12789,6 +13204,13 @@ def run_whole(file_vacuum, file_air, constant_parameters):
                 x_equivalent_landau_nozzle,
                 x_equivalent_landau_air_100cm,
                 x_equivalent_landau_air_60cm,
+            ],
+
+            "Equivalent x (Bethe) in energy [mm]": [
+                x_equivalent_bethe_window,
+                x_equivalent_bethe_nozzle,
+                x_equivalent_bethe_air_100cm,
+                x_equivalent_bethe_air_60cm,
             ],
         }
     )
