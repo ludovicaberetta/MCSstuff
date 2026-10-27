@@ -10743,6 +10743,7 @@ def run_analysis_with_air_small_components(
         comparison_convolution,
     )
 
+import matplotlib.colors as mcolors
 
 def plot_comparison_of_dataframes(
     direct_df,
