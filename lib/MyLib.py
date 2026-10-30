@@ -1,3 +1,5 @@
+
+#coomento
 from __future__ import annotations
 
 
@@ -435,65 +437,6 @@ def run_wiener_synthetic_test(
         f"Forward relative error   = "
         f"{result['forward_error']:.8e}"
     )
-
-    if make_plot:
-        fig, ax = plt.subplots(
-            figsize=(11, 5),
-        )
-
-        ax.plot(
-            xgrid,
-            pdf_intrinsic,
-            color="black",
-            lw=2.0,
-            label="True intrinsic PDF",
-        )
-
-        ax.plot(
-            xgrid,
-            pdf_kernel,
-            color="tab:red",
-            lw=1.6,
-            ls="--",
-            label="Scattering kernel",
-        )
-
-        ax.plot(
-            xgrid,
-            pdf_measured,
-            color="tab:blue",
-            lw=2.0,
-            label="Measured PDF",
-        )
-
-        ax.plot(
-            xgrid,
-            pdf_recovered,
-            color="tab:green",
-            lw=2.0,
-            label="Wiener recovered PDF",
-        )
-
-        ax.plot(
-            xgrid,
-            pdf_reconvolved,
-            color="tab:orange",
-            lw=1.8,
-            ls=":",
-            label="Recovered reconvolved PDF",
-        )
-
-        ax.set_xlim(-40.0, 40.0)
-        ax.set_xlabel("x [mm]")
-        ax.set_ylabel("PDF [mm$^{-1}$]")
-        ax.set_title(
-            "Synthetic Wiener validation on active xbin"
-        )
-        ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=8)
-
-        plt.tight_layout()
-        plt.show()
 
     return result
 
@@ -3430,463 +3373,6 @@ def show_distribution_slider(stored_distribution_plots, results_filtered, show=T
 
     return frames
 
-
-def _compute_kde_surface(x, y, xlim, ylim, gridsize = 100):
-    x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float)
-
-    mask = np.isfinite(x) & np.isfinite(y)
-    mask &= (x >= xlim[0]) & (x <= xlim[1])
-    mask &= (y >= ylim[0]) & (y <= ylim[1])
-
-    x = x[mask]
-    y = y[mask]
-
-    if len(x) < 5:
-        return None, None, None
-
-    xx = np.linspace(xlim[0], xlim[1], gridsize)
-    yy = np.linspace(ylim[0], ylim[1], gridsize)
-    X, Y = np.meshgrid(xx, yy)
-
-    kde = gaussian_kde(np.vstack([x, y]))
-    Z = kde(np.vstack([X.ravel(), Y.ravel()])).reshape(X.shape)
-
-    return X, Y, Z
-
-def build_phase_space_3d_frames(
-    stored_distribution_plots,
-    gridsize = 100,
-    elev=28,
-    azim=-60
-):
-    frames = []
-    global_limits = {
-    "x_xp": {
-        "xlim": (-50, 50),
-        "ylim": (-50, 50),
-    },
-    "y_yp": {
-        "xlim": (-50, 50),
-        "ylim": (-50, 50),
-    },
-}
-
-    for item in stored_distribution_plots:
-        df = item["surface_df_original"]
-        zpos = item["z_position"]
-        label = item["label"]
-
-        x_space = df["x - coordinate"].values
-        x_angle = df["x_prime"].values
-
-        y_space = df["y - coordinate"].values
-        y_angle = df["y_prime"].values
-
-        lim_xxp = global_limits["x_xp"]
-        lim_yyp = global_limits["y_yp"]
-
-        X1, Y1, Z1, _ = _compute_kde_surface(
-            x_space, x_angle,
-            lim_xxp["xlim"], lim_xxp["ylim"],
-            gridsize=gridsize
-        )
-
-        X2, Y2, Z2, _ = _compute_kde_surface(
-            y_space, y_angle,
-            lim_yyp["xlim"], lim_yyp["ylim"],
-            gridsize=gridsize
-        )
-
-        fig = plt.figure(figsize=(15, 6))
-
-        ax1 = fig.add_subplot(1, 2, 1, projection="3d")
-        ax2 = fig.add_subplot(1, 2, 2, projection="3d")
-
-        if Z1 is not None:
-            ax1.plot_surface(X1, Y1, Z1, cmap="viridis", linewidth=0, antialiased=True, alpha=0.92)
-
-            zmax1 = np.max(Z1)
-            levels1 = [0.10*zmax1, 0.50*zmax1, 0.75*zmax1, 0.90*zmax1]
-            ax1.contour(
-                X1, Y1, Z1,
-                levels=levels1,
-                zdir="z",
-                offset=0,
-                colors=["#440154", "#31688e", "#35b779", "#fde725"],
-                linewidths=2.0
-            )
-
-            ax1.set_zlim(0, zmax1 * 1.05)
-
-        ax1.set_title(f"{label} | z = {zpos} cm | phase space x-x'")
-        ax1.set_xlabel("x [mm]")
-        ax1.set_ylabel("x' [mrad]")
-        ax1.set_zlabel("Density")
-        ax1.set_xlim(*lim_xxp["xlim"])
-        ax1.set_ylim(*lim_xxp["ylim"])
-        ax1.view_init(elev=elev, azim=azim)
-
-        if Z2 is not None:
-            ax2.plot_surface(X2, Y2, Z2, cmap="plasma", linewidth=0, antialiased=True, alpha=0.92)
-
-            zmax2 = np.max(Z2)
-            levels2 = [0.10*zmax2, 0.50*zmax2, 0.75*zmax2, 0.90*zmax2]
-            ax2.contour(
-                X2, Y2, Z2,
-                levels=levels2,
-                zdir="z",
-                offset=0,
-                colors=["#0d0887", "#7e03a8", "#cc4778", "#f0f921"],
-                linewidths=2.0
-            )
-
-            ax2.set_zlim(0, zmax2 * 1.05)
-
-        ax2.set_title(f"{label} | z = {zpos} cm | phase space y-y'")
-        ax2.set_xlabel("y [mm]")
-        ax2.set_ylabel("y' [mrad]")
-        ax2.set_zlabel("Density")
-        ax2.set_xlim(*lim_yyp["xlim"])
-        ax2.set_ylim(*lim_yyp["ylim"])
-        ax2.view_init(elev=elev, azim=azim)
-
-        plt.tight_layout()
-        frames.append(fig_to_png_bytes(fig))
-
-    return frames
-
-
-from scipy.optimize import least_squares
-
-def twiss_ellipse_residuals(params, x, xp):
-    alpha, beta, epsilon = params
-
-    beta = float(beta)
-    epsilon = float(epsilon)
-
-    if beta <= 0 or epsilon <= 0:
-        # penalizza fortemente soluzioni non fisiche
-        return np.ones_like(x) * 1e6
-
-    gamma = (1.0 + alpha**2) / beta
-
-    return gamma * x**2 + 2.0 * alpha * x * xp + beta * xp**2 - epsilon
-
-
-def fit_twiss_snyder_global(x, xp, p0=None, center_data=False):
-    x = np.asarray(x, dtype=float)
-    xp = np.asarray(xp, dtype=float)
-
-    mask = np.isfinite(x) & np.isfinite(xp)
-    x = x[mask]
-    xp = xp[mask]
-
-    if len(x) < 6:
-        raise ValueError("Not enough valid points for Twiss fit.")
-
-    if center_data:
-        x0 = float(np.mean(x))
-        xp0 = float(np.mean(xp))
-        x_fit = x - x0
-        xp_fit = xp - xp0
-    else:
-        x0 = 0.0
-        xp0 = 0.0
-        x_fit = x.copy()
-        xp_fit = xp.copy()
-
-    if p0 is None:
-        x_abs = np.max(np.abs(x_fit)) if len(x_fit) else 1.0
-        xp_abs = np.max(np.abs(xp_fit)) if len(xp_fit) else 1.0
-
-        alpha0 = 0.0
-        beta0 = max(x_abs / max(xp_abs, 1e-6), 1e-3)
-        epsilon0 = max(x_abs**2 / max(beta0, 1e-6), 1e-6)
-
-        p0 = np.array([alpha0, beta0, epsilon0], dtype=float)
-
-    lower_bounds = np.array([-np.inf, 1e-12, 1e-12], dtype=float)
-    upper_bounds = np.array([ np.inf,  np.inf,  np.inf], dtype=float)
-
-    res = least_squares(
-        fun=twiss_ellipse_residuals,
-        x0=p0,
-        args=(x_fit, xp_fit),
-        bounds=(lower_bounds, upper_bounds),
-        max_nfev=20000
-    )
-
-    alpha_fit, beta_fit, epsilon_fit = res.x
-    gamma_fit = (1.0 + alpha_fit**2) / beta_fit
-
-    return alpha_fit, beta_fit, gamma_fit, epsilon_fit, x0, xp0
-
-from skimage import measure
-
-def _contour_area(contour):
-    contour = np.asarray(
-        contour,
-        dtype=float,
-    )
-
-    if contour.ndim != 2 or contour.shape[0] < 3:
-        return 0.0
-
-    x = contour[:, 1]
-    y = contour[:, 0]
-
-    return 0.5 * abs(
-        np.dot(x, np.roll(y, -1))
-        - np.dot(y, np.roll(x, -1))
-    )
-
-def twiss_from_phase_space_data(
-    x,
-    xp,
-    center_data=True,
-):
-    """
-    Compute Twiss parameters directly from particles in a phase-space region.
-
-    Parameters
-    ----------
-    x : array-like
-        Spatial coordinate, for example x or y, in mm.
-    xp : array-like
-        Angular coordinate, for example x_prime or y_prime, in mrad.
-    center_data : bool
-        If True, calculate covariance around the mean of selected data.
-
-    Returns
-    -------
-    dict
-        Twiss parameters and basic diagnostics.
-    """
-
-    x = np.asarray(
-        x,
-        dtype=float,
-    )
-
-    xp = np.asarray(
-        xp,
-        dtype=float,
-    )
-
-    valid_mask = (
-        np.isfinite(x)
-        & np.isfinite(xp)
-    )
-
-    x = x[valid_mask]
-    xp = xp[valid_mask]
-
-    if x.size < 3:
-        raise ValueError(
-            "At least three finite points are required "
-            "to calculate Twiss parameters."
-        )
-
-    if center_data:
-        x0 = float(np.mean(x))
-        xp0 = float(np.mean(xp))
-    else:
-        x0 = 0.0
-        xp0 = 0.0
-
-    x_centered = x - x0
-    xp_centered = xp - xp0
-
-    sigma_xx = float(
-        np.mean(x_centered**2)
-    )
-
-    sigma_xpxp = float(
-        np.mean(xp_centered**2)
-    )
-
-    sigma_xxp = float(
-        np.mean(
-            x_centered
-            * xp_centered
-        )
-    )
-
-    determinant = (
-        sigma_xx
-        * sigma_xpxp
-        - sigma_xxp**2
-    )
-
-    if determinant <= 0.0:
-        raise ValueError(
-            "Non-positive covariance determinant; "
-            "cannot calculate physical emittance."
-        )
-
-    epsilon = float(
-        np.sqrt(determinant)
-    )
-
-    beta = float(
-        sigma_xx / epsilon
-    )
-
-    alpha = float(
-        -sigma_xxp / epsilon
-    )
-
-    gamma = float(
-        sigma_xpxp / epsilon
-    )
-
-    gamma_cs = float(
-        (1.0 + alpha**2) / beta
-    )
-
-    return {
-        "alpha": alpha,
-        "beta": beta,
-        "gamma": gamma,
-        "gamma_cs": gamma_cs,
-        "epsilon": epsilon,
-        "x0": x0,
-        "xp0": xp0,
-        "sigma_xx": sigma_xx,
-        "sigma_xpxp": sigma_xpxp,
-        "sigma_xxp": sigma_xxp,
-        "n_selected": int(x.size),
-    }
-
-def apply_twiss_ellipse_mask(
-    x,
-    xp,
-    alpha,
-    beta,
-    epsilon,
-    x0=0.0,
-    xp0=0.0,
-    level=1.0,
-):
-    """
-    Return the boolean mask of points inside a Twiss ellipse.
-
-    The selected region satisfies:
-
-        gamma * dx^2 + 2 alpha * dx * dxp + beta * dxp^2
-        <= level * epsilon
-
-    where gamma = (1 + alpha^2) / beta.
-    """
-
-    x = np.asarray(
-        x,
-        dtype=float,
-    )
-
-    xp = np.asarray(
-        xp,
-        dtype=float,
-    )
-
-    if beta <= 0.0:
-        raise ValueError(
-            "beta must be positive."
-        )
-
-    if epsilon <= 0.0:
-        raise ValueError(
-            "epsilon must be positive."
-        )
-
-    if level <= 0.0:
-        raise ValueError(
-            "level must be positive."
-        )
-
-    gamma = (
-        1.0 + alpha**2
-    ) / beta
-
-    dx = x - x0
-    dxp = xp - xp0
-
-    ellipse_quantity = (
-        gamma * dx**2
-        + 2.0 * alpha * dx * dxp
-        + beta * dxp**2
-    )
-
-    valid_mask = (
-        np.isfinite(x)
-        & np.isfinite(xp)
-    )
-
-    ellipse_mask = (
-        ellipse_quantity
-        <= level * epsilon
-    )
-
-    return (
-        valid_mask
-        & ellipse_mask
-    )
-
-def twiss_statistics_after_ellipse_cut(
-    x,
-    xp,
-    ellipse_alpha,
-    ellipse_beta,
-    ellipse_epsilon,
-    ellipse_x0=0.0,
-    ellipse_xp0=0.0,
-    ellipse_level=1.0,
-):
-    """
-    Apply an elliptical cut and calculate Twiss parameters directly
-    from the particles remaining inside the ellipse.
-    """
-
-    x = np.asarray(
-        x,
-        dtype=float,
-    )
-
-    xp = np.asarray(
-        xp,
-        dtype=float,
-    )
-
-    mask = apply_twiss_ellipse_mask(
-        x=x,
-        xp=xp,
-        alpha=ellipse_alpha,
-        beta=ellipse_beta,
-        epsilon=ellipse_epsilon,
-        x0=ellipse_x0,
-        xp0=ellipse_xp0,
-        level=ellipse_level,
-    )
-
-    x_selected = x[mask]
-    xp_selected = xp[mask]
-
-    statistics = twiss_from_phase_space_data(
-        x_selected,
-        xp_selected,
-        center_data=True,
-    )
-
-    statistics["mask"] = mask
-    statistics["n_total"] = int(x.size)
-    statistics["fraction_selected"] = float(
-        x_selected.size / x.size
-    ) if x.size > 0 else np.nan
-
-    return statistics
-
-
 def plot_evolution_fit (result_list_original, result_list_filtered, result_list_masked, show = True):
 
     z_positions = [r['z_position'] for r in result_list_original]
@@ -4022,2253 +3508,6 @@ def plot_evolution_fit (result_list_original, result_list_filtered, result_list_
         plt.show()
 
     return fig1, fig2
-
-def twiss_from_different_cuts(
-    df_original,
-    cut_levels=(
-        0.90,
-        0.75,
-        0.6065,
-        0.50,
-        0.10,
-    ),
-    positions_scoring=None,
-    label="",
-    lim=(-50.0, 50.0),
-    gridsize=100,
-):
-    """
-    Calculate Twiss parameters after KDE-based elliptical cuts.
-
-    For every scoring surface and every KDE density level:
-
-    1. Build a KDE from the original dataset.
-    2. Extract the largest contour at the requested fraction of the
-       KDE maximum.
-    3. Fit a Twiss ellipse to the contour.
-    4. Select the particles inside that fitted ellipse.
-    5. Calculate beam_parameters() on the selected particles.
-
-    The procedure is performed independently for x-x' and y-y'.
-
-    Parameters
-    ----------
-    df_original : pandas.DataFrame
-        Original complete dataframe. It must contain at least:
-        - scoring_surface
-        - x - coordinate
-        - y - coordinate
-        - x_prime
-        - y_prime
-
-    cut_levels : iterable of float
-        Fractions of KDE peak density. Every value must satisfy:
-        0 < level < 1.
-
-        Typical values:
-        - 0.90
-        - 0.75
-        - 0.6065
-        - 0.50
-        - 0.10
-
-    positions_scoring : iterable or None
-        Scoring-surface positions in cm. If None, values are inferred
-        from df_original["scoring_surface"].
-
-    label : str
-        Label stored in the outputs, for example "Vacuum" or "Air".
-
-    lim : tuple[float, float]
-        KDE range for both phase-space axes.
-
-    gridsize : int
-        KDE grid size.
-
-    Returns
-    -------
-    twiss_dataframe : pandas.DataFrame
-        One row per scoring surface. Columns include, for example:
-        alpha_x_90, beta_x_90, gamma_x_90, epsilon_x_90,
-        alpha_y_90, beta_y_90, gamma_y_90, epsilon_y_90,
-        and equivalent columns for each requested cut level.
-
-    cuts_data : dict
-        Structured data for each scoring surface, plane and cut level.
-        It contains selected dataframes, contours and fitted ellipses.
-        Use this dictionary as input to 3D phase-space visualizations.
-    """
-
-    if df_original is None or df_original.empty:
-        raise ValueError(
-            "df_original is empty."
-        )
-
-    required_columns = [
-        "scoring_surface",
-        "x - coordinate",
-        "y - coordinate",
-        "x_prime",
-        "y_prime",
-    ]
-
-    missing_columns = [
-        column
-        for column in required_columns
-        if column not in df_original.columns
-    ]
-
-    if missing_columns:
-        raise KeyError(
-            "Missing required columns: "
-            f"{missing_columns}"
-        )
-
-    lim_min = float(lim[0])
-    lim_max = float(lim[1])
-
-    if lim_max <= lim_min:
-        raise ValueError(
-            "lim[1] must be larger than lim[0]."
-        )
-
-    gridsize = int(gridsize)
-
-    if gridsize < 10:
-        raise ValueError(
-            "gridsize must be at least 10."
-        )
-
-    cut_levels = tuple(
-        float(level)
-        for level in cut_levels
-    )
-
-    if not cut_levels:
-        raise ValueError(
-            "cut_levels cannot be empty."
-        )
-
-    for level in cut_levels:
-        if not 0.0 < level < 1.0:
-            raise ValueError(
-                "Every cut level must satisfy "
-                "0 < level < 1."
-            )
-
-    if positions_scoring is None:
-        positions_scoring = sorted(
-            pd.to_numeric(
-                df_original["scoring_surface"],
-                errors="coerce",
-            )
-            .dropna()
-            .unique()
-            .tolist()
-        )
-
-    positions_scoring = [
-        float(position)
-        for position in positions_scoring
-    ]
-
-    if not positions_scoring:
-        raise ValueError(
-            "No scoring surfaces available."
-        )
-
-    plane_configs = {
-        "x": {
-            "plane": "x_xp",
-            "coordinate_column": "x - coordinate",
-            "angle_column": "x_prime",
-        },
-
-        "y": {
-            "plane": "y_yp",
-            "coordinate_column": "y - coordinate",
-            "angle_column": "y_prime",
-        },
-    }
-
-    def _level_key(level):
-        """
-        Convert a KDE fraction into a stable column suffix.
-
-        Examples:
-        0.90   -> 90
-        0.75   -> 75
-        0.6065 -> 6065
-        0.50   -> 50
-        0.10   -> 10
-        """
-
-        percent = 100.0 * float(level)
-
-        if np.isclose(
-            percent,
-            round(percent),
-            atol=1e-10,
-        ):
-            return str(
-                int(round(percent))
-            )
-
-        return (
-            f"{percent:.4f}"
-            .replace(".", "")
-            .rstrip("0")
-        )
-
-    def _level_label(level):
-        return (
-            f"{100.0 * level:.2f}% "
-            "peak density"
-        )
-
-    results_rows = []
-    cuts_data = {}
-
-    for z_position in positions_scoring:
-
-        surface_df = df_original.loc[
-            np.isclose(
-                pd.to_numeric(
-                    df_original[
-                        "scoring_surface"
-                    ],
-                    errors="coerce",
-                ).to_numpy(
-                    dtype=float
-                ),
-                z_position,
-                rtol=0.0,
-                atol=1e-9,
-            )
-        ].copy()
-
-        if surface_df.empty:
-            print(
-                f"WARNING: no original data found "
-                f"at z={z_position} cm."
-            )
-            continue
-
-        row = {
-            "label": label,
-            "z_position": float(
-                z_position
-            ),
-            "n_original": int(
-                len(surface_df)
-            ),
-        }
-
-        cuts_data[float(z_position)] = {
-            "label": label,
-            "z_position": float(
-                z_position
-            ),
-            "n_original": int(
-                len(surface_df)
-            ),
-            "x": {},
-            "y": {},
-        }
-
-        for axis_name, cfg in plane_configs.items():
-
-            coordinate_column = cfg[
-                "coordinate_column"
-            ]
-
-            angle_column = cfg[
-                "angle_column"
-            ]
-
-            plane_name = cfg["plane"]
-
-            coordinate_values = pd.to_numeric(
-                surface_df[
-                    coordinate_column
-                ],
-                errors="coerce",
-            ).to_numpy(
-                dtype=float
-            )
-
-            angle_values = pd.to_numeric(
-                surface_df[
-                    angle_column
-                ],
-                errors="coerce",
-            ).to_numpy(
-                dtype=float
-            )
-
-            finite_mask = (
-                np.isfinite(
-                    coordinate_values
-                )
-                & np.isfinite(
-                    angle_values
-                )
-            )
-
-            plane_df = surface_df.loc[
-                finite_mask
-            ].copy()
-
-            coordinate_values = coordinate_values[
-                finite_mask
-            ]
-
-            angle_values = angle_values[
-                finite_mask
-            ]
-
-            if coordinate_values.size < 10:
-                print(
-                    f"WARNING: insufficient finite data "
-                    f"for {plane_name} at "
-                    f"z={z_position} cm."
-                )
-                continue
-
-            X, Y, Z = _compute_kde_surface(
-                coordinate_values,
-                angle_values,
-                xlim=(lim_min, lim_max),
-                ylim=(lim_min, lim_max),
-                gridsize=gridsize,
-            )
-
-            if (
-                X is None
-                or Y is None
-                or Z is None
-                or not np.any(
-                    np.isfinite(Z)
-                )
-            ):
-                print(
-                    f"WARNING: KDE failed for "
-                    f"{plane_name} at "
-                    f"z={z_position} cm."
-                )
-                continue
-
-            zmax = float(
-                np.nanmax(Z)
-            )
-
-            if (
-                not np.isfinite(zmax)
-                or zmax <= 0.0
-            ):
-                print(
-                    f"WARNING: invalid KDE maximum for "
-                    f"{plane_name} at "
-                    f"z={z_position} cm."
-                )
-                continue
-
-            for cut_level in cut_levels:
-
-                level_key = _level_key(
-                    cut_level
-                )
-
-                level_label = _level_label(
-                    cut_level
-                )
-
-                kde_level = float(
-                    cut_level * zmax
-                )
-
-                contours = measure.find_contours(
-                    Z,
-                    level=kde_level,
-                )
-
-                if not contours:
-                    print(
-                        f"WARNING: no contour for "
-                        f"{plane_name}, "
-                        f"z={z_position} cm, "
-                        f"cut={level_label}."
-                    )
-                    continue
-
-                contour = max(
-                    contours,
-                    key=_contour_area,
-                )
-
-                if (
-                    contour is None
-                    or contour.shape[0] < 6
-                ):
-                    print(
-                        f"WARNING: contour too short for "
-                        f"{plane_name}, "
-                        f"z={z_position} cm, "
-                        f"cut={level_label}."
-                    )
-                    continue
-
-                rows = contour[:, 0]
-                cols = contour[:, 1]
-
-                coordinate_contour = np.interp(
-                    cols,
-                    np.arange(
-                        Z.shape[1]
-                    ),
-                    X[0, :],
-                )
-
-                angle_contour = np.interp(
-                    rows,
-                    np.arange(
-                        Z.shape[0]
-                    ),
-                    Y[:, 0],
-                )
-
-                contour_mask = (
-                    np.isfinite(
-                        coordinate_contour
-                    )
-                    & np.isfinite(
-                        angle_contour
-                    )
-                )
-
-                coordinate_contour = (
-                    coordinate_contour[
-                        contour_mask
-                    ]
-                )
-
-                angle_contour = angle_contour[
-                    contour_mask
-                ]
-
-                if coordinate_contour.size < 6:
-                    print(
-                        f"WARNING: too few contour points "
-                        f"for {plane_name}, "
-                        f"z={z_position} cm, "
-                        f"cut={level_label}."
-                    )
-                    continue
-
-                try:
-                    (
-                        alpha_ellipse,
-                        beta_ellipse,
-                        gamma_ellipse,
-                        epsilon_ellipse,
-                        coordinate_center,
-                        angle_center,
-                    ) = fit_twiss_snyder_global(
-                        coordinate_contour,
-                        angle_contour,
-                        p0=None,
-                        center_data=True,
-                    )
-
-                except Exception as exc:
-                    print(
-                        f"WARNING: ellipse fit failed for "
-                        f"{plane_name}, "
-                        f"z={z_position} cm, "
-                        f"cut={level_label}. "
-                        f"Reason: {exc}"
-                    )
-                    continue
-
-                if (
-                    not np.isfinite(
-                        alpha_ellipse
-                    )
-                    or not np.isfinite(
-                        beta_ellipse
-                    )
-                    or not np.isfinite(
-                        epsilon_ellipse
-                    )
-                    or beta_ellipse <= 0.0
-                    or epsilon_ellipse <= 0.0
-                ):
-                    print(
-                        f"WARNING: nonphysical ellipse for "
-                        f"{plane_name}, "
-                        f"z={z_position} cm, "
-                        f"cut={level_label}."
-                    )
-                    continue
-
-                ellipse_mask = (
-                    apply_twiss_ellipse_mask(
-                        coordinate_values,
-                        angle_values,
-                        alpha=alpha_ellipse,
-                        beta=beta_ellipse,
-                        epsilon=epsilon_ellipse,
-                        x0=coordinate_center,
-                        xp0=angle_center,
-                        level=1.0,
-                    )
-                )
-
-                df_selected = plane_df.loc[
-                    ellipse_mask
-                ].copy()
-
-                selected_coordinate = (
-                    coordinate_values[
-                        ellipse_mask
-                    ]
-                )
-
-                selected_angle = angle_values[
-                    ellipse_mask
-                ]
-
-                n_selected = int(
-                    len(df_selected)
-                )
-
-                n_total = int(
-                    len(plane_df)
-                )
-
-                if n_selected < 3:
-                    print(
-                        f"WARNING: only {n_selected} points "
-                        f"selected for {plane_name}, "
-                        f"z={z_position} cm, "
-                        f"cut={level_label}."
-                    )
-                    continue
-
-                try:
-                    (
-                        emittance,
-                        alpha,
-                        beta,
-                        gamma,
-                    ) = beam_parameters(
-                        df_selected,
-                        coordinate_column,
-                        angle_column,
-                    )
-
-                except Exception as exc:
-                    print(
-                        f"WARNING: beam_parameters failed for "
-                        f"{plane_name}, "
-                        f"z={z_position} cm, "
-                        f"cut={level_label}. "
-                        f"Reason: {exc}"
-                    )
-                    continue
-
-                gamma_cs = (
-                    1.0 + float(alpha)**2
-                ) / float(beta)
-
-                ellipse_coordinate, ellipse_angle = (
-                    twiss_ellipse_points(
-                        alpha=alpha_ellipse,
-                        beta=beta_ellipse,
-                        epsilon=epsilon_ellipse,
-                        x0=coordinate_center,
-                        xp0=angle_center,
-                        npts=600,
-                    )
-                )
-
-                row[
-                    f"alpha{axis_name}{level_key}"
-                ] = float(alpha)
-
-                row[
-                    f"beta{axis_name}{level_key}"
-                ] = float(beta)
-
-                row[
-                    f"gamma{axis_name}{level_key}"
-                ] = float(gamma)
-
-                row[
-                    f"gammacs{axis_name}{level_key}"
-                ] = float(gamma_cs)
-
-                row[
-                    f"epsilon{axis_name}{level_key}"
-                ] = float(emittance)
-
-                row[
-                    f"x0_{axis_name}{level_key}"
-                ] = float(
-                    np.mean(selected_coordinate)
-                )
-
-                row[
-                    f"xp0_{axis_name}_{level_key}"
-                ] = float(
-                    np.mean(selected_angle)
-                )
-
-                row[
-                    f"n_selected_{axis_name}{level_key}"
-                ] = n_selected
-
-                row[
-                    f"fraction_selected_{axis_name}{level_key}"
-                ] = (
-                    n_selected / n_total
-                    if n_total > 0
-                    else np.nan
-                )
-
-                row[
-                    f"ellipse_alpha_{axis_name}_{level_key}"
-                ] = float(alpha_ellipse)
-
-                row[
-                    f"ellipse_beta_{axis_name}_{level_key}"
-                ] = float(beta_ellipse)
-
-                row[
-                    f"ellipse_gamma_{axis_name}_{level_key}"
-                ] = float(gamma_ellipse)
-
-                row[
-                    f"ellipse_epsilon_{axis_name}_{level_key}"
-                ] = float(epsilon_ellipse)
-
-                row[
-                    f"ellipse_x0_{axis_name}_{level_key}"
-                ] = float(coordinate_center)
-
-                row[
-                    f"ellipse_xp0_{axis_name}_{level_key}"
-                ] = float(angle_center)
-
-                cuts_data[
-                    float(z_position)
-                ][axis_name][level_key] = {
-                    "label": label,
-
-                    "z_position": float(
-                        z_position
-                    ),
-
-                    "plane": plane_name,
-
-                    "cut_level": float(
-                        cut_level
-                    ),
-
-                    "cut_label": level_label,
-
-                    "coordinate_column": (
-                        coordinate_column
-                    ),
-
-                    "angle_column": angle_column,
-
-                    "kde_X": X,
-
-                    "kde_Y": Y,
-
-                    "kde_Z": Z,
-
-                    "kde_level": float(
-                        kde_level
-                    ),
-
-                    "contour_coordinate": (
-                        np.asarray(
-                            coordinate_contour,
-                            dtype=float,
-                        )
-                    ),
-
-                    "contour_angle": np.asarray(
-                        angle_contour,
-                        dtype=float,
-                    ),
-
-                    "ellipse_coordinate": np.asarray(
-                        ellipse_coordinate,
-                        dtype=float,
-                    ),
-
-                    "ellipse_angle": np.asarray(
-                        ellipse_angle,
-                        dtype=float,
-                    ),
-
-                    "ellipse_alpha": float(
-                        alpha_ellipse
-                    ),
-
-                    "ellipse_beta": float(
-                        beta_ellipse
-                    ),
-
-                    "ellipse_gamma": float(
-                        gamma_ellipse
-                    ),
-
-                    "ellipse_epsilon": float(
-                        epsilon_ellipse
-                    ),
-
-                    "ellipse_coordinate_center": (
-                        float(coordinate_center)
-                    ),
-
-                    "ellipse_angle_center": float(
-                        angle_center
-                    ),
-
-                    "selected_dataframe": df_selected,
-
-                    "selected_coordinate": np.asarray(
-                        selected_coordinate,
-                        dtype=float,
-                    ),
-
-                    "selected_angle": np.asarray(
-                        selected_angle,
-                        dtype=float,
-                    ),
-
-                    "n_total": n_total,
-
-                    "n_selected": n_selected,
-
-                    "fraction_selected": (
-                        n_selected / n_total
-                        if n_total > 0
-                        else np.nan
-                    ),
-
-                    "alpha": float(alpha),
-
-                    "beta": float(beta),
-
-                    "gamma": float(gamma),
-
-                    "gamma_cs": float(gamma_cs),
-
-                    "gammacs": float(gamma_cs),
-
-                    "epsilon": float(emittance),
-                }
-
-        results_rows.append(
-            row
-        )
-
-    twiss_dataframe = pd.DataFrame(
-        results_rows
-    )
-
-    if not twiss_dataframe.empty:
-        twiss_dataframe = twiss_dataframe.sort_values(
-            "z_position"
-        ).reset_index(
-            drop=True
-        )
-
-    return twiss_dataframe, cuts_data
-
-def plot_twiss_different_cuts(
-    twiss_dataframe,
-    plane="x",
-    show=True,
-):
-    """
-    Compare Twiss parameters across KDE-based elliptical-cut levels.
-
-    Parameters
-    ----------
-    twiss_dataframe : pandas.DataFrame
-        Output of twiss_from_different_cuts().
-
-    plane : str
-        "x" for x-x' Twiss parameters or "y" for y-y'.
-
-    show : bool
-        If True, call plt.show().
-
-    Returns
-    -------
-    matplotlib.figure.Figure
-    """
-
-    if plane not in ("x", "y"):
-        raise ValueError(
-            "plane must be 'x' or 'y'."
-        )
-
-    if twiss_dataframe is None or twiss_dataframe.empty:
-        raise ValueError(
-            "twiss_dataframe is empty."
-        )
-
-    cut_levels = [
-        ("90", "90%"),
-        ("75", "75%"),
-        ("6065", "60.65%"),
-        ("50", "50%"),
-        ("10", "10%"),
-    ]
-
-    z_positions = twiss_dataframe[
-        "z_position"
-    ].to_numpy(
-        dtype=float
-    )
-
-    fig, axes = plt.subplots(
-        2,
-        2,
-        figsize=(14, 10),
-        sharex=True,
-    )
-
-    axes = axes.ravel()
-
-    parameter_configs = [
-        (
-            "alpha",
-            axes[0],
-            r"$\alpha$",
-        ),
-
-        (
-            "beta",
-            axes[1],
-            r"$\beta$",
-        ),
-
-        (
-            "gamma",
-            axes[2],
-            r"$\gamma$",
-        ),
-
-        (
-            "epsilon",
-            axes[3],
-            r"$\epsilon$",
-        ),
-    ]
-
-    colors = plt.cm.viridis(
-        np.linspace(
-            0.05,
-            0.95,
-            len(cut_levels),
-        )
-    )
-
-    for parameter, ax, ylabel in parameter_configs:
-        for (suffix, legend_label), color in zip(
-            cut_levels,
-            colors,
-        ):
-            column = (
-                f"{parameter}_{plane}_{suffix}"
-            )
-
-            if column not in twiss_dataframe.columns:
-                continue
-
-            values = twiss_dataframe[
-                column
-            ].to_numpy(
-                dtype=float
-            )
-
-            ax.plot(
-                z_positions,
-                values,
-                marker="o",
-                linewidth=2.0,
-                markersize=5,
-                color=color,
-                label=legend_label,
-            )
-
-        ax.set_title(
-            f"{ylabel} in plane {plane}-{plane}'"
-        )
-
-        ax.set_xlabel(
-            "Scoring position [cm]"
-        )
-
-        ax.set_ylabel(
-            ylabel
-        )
-
-        ax.grid(
-            alpha=0.30,
-        )
-
-        ax.legend(
-            title="KDE cut level",
-            fontsize=9,
-        )
-
-    fig.suptitle(
-        f"Twiss parameters after KDE elliptical cuts: "
-        f"{plane}-{plane}'",
-        fontsize=15,
-    )
-
-    fig.tight_layout(
-        rect=[0, 0.03, 1, 0.95]
-    )
-
-    if show:
-        plt.show()
-
-    return fig
-
-def _plot_one_surface_twiss_evolution(
-    cut_percentages,
-    cut_labels,
-    alpha_x_cuts,
-    alpha_y_cuts,
-    alpha_x_statistics,
-    alpha_y_statistics,
-    beta_x_cuts,
-    beta_y_cuts,
-    beta_x_statistics,
-    beta_y_statistics,
-    gamma_x_cuts,
-    gamma_y_cuts,
-    gamma_x_statistics,
-    gamma_y_statistics,
-    emittance_x_cuts,
-    emittance_y_cuts,
-    emittance_x_statistics,
-    emittance_y_statistics,
-    surface_label=None,
-    axis_limits=None,
-    show=False,
-):
-    """
-    Plot Twiss parameters at one scoring surface as a function
-    of the KDE elliptical-cut percentage.
-
-    Solid blue curve:
-        Twiss parameter calculated from particles selected in x-x'.
-
-    Solid orange curve:
-        Twiss parameter calculated from particles selected in y-y'.
-
-    Horizontal dashed lines:
-        Twiss parameters obtained from the standard statistical
-        beam analysis at the same scoring surface.
-    """
-
-    cut_percentages = np.asarray(
-        cut_percentages,
-        dtype=float,
-    )
-
-    cut_labels = list(
-        cut_labels
-    )
-
-    alpha_x_cuts = np.asarray(
-        alpha_x_cuts,
-        dtype=float,
-    )
-
-    alpha_y_cuts = np.asarray(
-        alpha_y_cuts,
-        dtype=float,
-    )
-
-    beta_x_cuts = np.asarray(
-        beta_x_cuts,
-        dtype=float,
-    )
-
-    beta_y_cuts = np.asarray(
-        beta_y_cuts,
-        dtype=float,
-    )
-
-    gamma_x_cuts = np.asarray(
-        gamma_x_cuts,
-        dtype=float,
-    )
-
-    gamma_y_cuts = np.asarray(
-        gamma_y_cuts,
-        dtype=float,
-    )
-
-    emittance_x_cuts = np.asarray(
-        emittance_x_cuts,
-        dtype=float,
-    )
-
-    emittance_y_cuts = np.asarray(
-        emittance_y_cuts,
-        dtype=float,
-    )
-
-    fig, axs = plt.subplots(
-        2,
-        2,
-        figsize=(13, 9),
-        sharex=True,
-    )
-
-    axs = axs.ravel()
-
-    curve_style_x = {
-        "color": "tab:blue",
-        "marker": "s",
-        "linewidth": 2.4,
-        "markersize": 6,
-    }
-
-    curve_style_y = {
-        "color": "tab:orange",
-        "marker": "o",
-        "linewidth": 2.0,
-        "markersize": 5,
-    }
-
-    stat_style_x = {
-        "color": "tab:blue",
-        "linestyle": "--",
-        "linewidth": 2.0,
-        "alpha": 0.85,
-    }
-
-    stat_style_y = {
-        "color": "tab:orange",
-        "linestyle": "--",
-        "linewidth": 1.7,
-        "alpha": 0.85,
-    }
-
-    configs = [
-        {
-            "axis": axs[0],
-            "title": "Twiss α",
-            "ylabel": "α",
-            "x_values": alpha_x_cuts,
-            "y_values": alpha_y_cuts,
-            "x_statistics": alpha_x_statistics,
-            "y_statistics": alpha_y_statistics,
-        },
-        {
-            "axis": axs[1],
-            "title": "Twiss β",
-            "ylabel": "β [mm/mrad]",
-            "x_values": beta_x_cuts,
-            "y_values": beta_y_cuts,
-            "x_statistics": beta_x_statistics,
-            "y_statistics": beta_y_statistics,
-        },
-        {
-            "axis": axs[2],
-            "title": "Twiss γ",
-            "ylabel": "γ [mrad/mm]",
-            "x_values": gamma_x_cuts,
-            "y_values": gamma_y_cuts,
-            "x_statistics": gamma_x_statistics,
-            "y_statistics": gamma_y_statistics,
-        },
-        {
-            "axis": axs[3],
-            "title": "Emittance ε",
-            "ylabel": "ε [mm·mrad]",
-            "x_values": emittance_x_cuts,
-            "y_values": emittance_y_cuts,
-            "x_statistics": emittance_x_statistics,
-            "y_statistics": emittance_y_statistics,
-        },
-    ]
-
-    for config in configs:
-        ax = config["axis"]
-
-        ax.plot(
-            cut_percentages,
-            config["x_values"],
-            label="KDE elliptical cut x-x'",
-            **curve_style_x,
-        )
-
-        ax.plot(
-            cut_percentages,
-            config["y_values"],
-            label="KDE elliptical cut y-y'",
-            **curve_style_y,
-        )
-
-        ax.axhline(
-            float(config["x_statistics"]),
-            label="Statistical x-x'",
-            **stat_style_x,
-        )
-
-        ax.axhline(
-            float(config["y_statistics"]),
-            label="Statistical y-y'",
-            **stat_style_y,
-        )
-
-        ax.set_title(
-            config["title"]
-        )
-
-        ax.set_ylabel(
-            config["ylabel"]
-        )
-
-        ax.grid(
-            True,
-            alpha=0.30,
-        )
-
-        ax.legend(
-            fontsize=8,
-            loc="best",
-        )
-
-    for ax in axs:
-        ax.set_xticks(
-            cut_percentages
-        )
-
-        ax.set_xticklabels(
-            cut_labels,
-            rotation=0,
-        )
-
-        ax.set_xlabel(
-            "KDE contour level [% of peak density]"
-        )
-
-    if axis_limits is not None:
-        if axis_limits.get("alpha") is not None:
-            axs[0].set_ylim(
-                axis_limits["alpha"]
-            )
-
-        if axis_limits.get("beta") is not None:
-            axs[1].set_ylim(
-                axis_limits["beta"]
-            )
-
-        if axis_limits.get("gamma") is not None:
-            axs[2].set_ylim(
-                axis_limits["gamma"]
-            )
-
-        if axis_limits.get("epsilon") is not None:
-            axs[3].set_ylim(
-                axis_limits["epsilon"]
-            )
-
-    title = (
-        "Twiss parameters versus KDE elliptical-cut level"
-    )
-
-    if surface_label is not None:
-        title += f" — {surface_label}"
-
-    fig.suptitle(
-        title,
-        fontsize=15,
-    )
-
-    fig.tight_layout(
-        rect=[0.0, 0.03, 1.0, 0.95]
-    )
-
-    if show:
-        plt.show()
-
-    return fig
-
-def _plot_one_surface_twiss_evolutioni(
-    levels,
-    labels,
-    alpha_x_fit, alpha_y_fit, alpha_x_statistics, alpha_y_statistics,
-    beta_x_fit, beta_y_fit, beta_x_statistics, beta_y_statistics,
-    gamma_x_fit, gamma_y_fit, gamma_x_statistics, gamma_y_statistics,
-    gamma_cs_x, gamma_cs_y,
-    emittance_x_fit, emittance_y_fit, emittance_x_statistics, emittance_y_statistics,
-    surface_label=None,
-    axis_limits=None,
-    show=False
-):
-    import numpy as np
-    import matplotlib.pyplot as plt
-
-    levels = np.asarray(levels, dtype=float)
-    labels = list(labels)
-
-    alpha_x_fit = np.asarray(alpha_x_fit, dtype=float)
-    alpha_y_fit = np.asarray(alpha_y_fit, dtype=float)
-    beta_x_fit = np.asarray(beta_x_fit, dtype=float)
-    beta_y_fit = np.asarray(beta_y_fit, dtype=float)
-    gamma_x_fit = np.asarray(gamma_x_fit, dtype=float)
-    gamma_y_fit = np.asarray(gamma_y_fit, dtype=float)
-    gamma_cs_x = np.asarray(gamma_cs_x, dtype=float)
-    gamma_cs_y = np.asarray(gamma_cs_y, dtype=float)
-    emittance_x_fit = np.asarray(emittance_x_fit, dtype=float)
-    emittance_y_fit = np.asarray(emittance_y_fit, dtype=float)
-
-    fig, axs = plt.subplots(2, 2, figsize=(12, 8))
-    axs = axs.ravel()
-
-    x_marker = 's'
-    y_marker = 'o'
-    x_lw = 2.8
-    y_lw = 1.5
-    x_stat_lw = 2.4
-    y_stat_lw = 1.4
-
-    axs[0].plot(levels, alpha_x_fit, marker=x_marker, lw=x_lw, label='alpha x fit', color='tab:blue')
-    axs[0].plot(levels, alpha_y_fit, marker=y_marker, lw=y_lw, label='alpha y fit', color='tab:orange')
-    axs[0].axhline(alpha_x_statistics, ls='--', lw=x_stat_lw, color='tab:blue', alpha=0.8, label='alpha x stat')
-    axs[0].axhline(alpha_y_statistics, ls='--', lw=y_stat_lw, color='tab:orange', alpha=0.8, label='alpha y stat')
-    axs[0].set_title(r'$\alpha$')
-    axs[0].set_ylabel(r'$\alpha$')
-    axs[0].grid(True, alpha=0.3)
-    axs[0].legend(fontsize=9)
-
-    axs[1].plot(levels, beta_x_fit, marker=x_marker, lw=x_lw, label='beta x fit', color='tab:blue')
-    axs[1].plot(levels, beta_y_fit, marker=y_marker, lw=y_lw, label='beta y fit', color='tab:orange')
-    axs[1].axhline(beta_x_statistics, ls='--', lw=x_stat_lw, color='tab:blue', alpha=0.8, label='beta x stat')
-    axs[1].axhline(beta_y_statistics, ls='--', lw=y_stat_lw, color='tab:orange', alpha=0.8, label='beta y stat')
-    axs[1].set_title(r'$\beta$')
-    axs[1].set_ylabel(r'$\beta$')
-    axs[1].grid(True, alpha=0.3)
-    axs[1].legend(fontsize=9)
-
-    axs[2].plot(levels, emittance_x_fit, marker=x_marker, lw=x_lw, label='epsilon x fit', color='tab:blue')
-    axs[2].plot(levels, emittance_y_fit, marker=y_marker, lw=y_lw, label='epsilon y fit', color='tab:orange')
-    axs[2].axhline(emittance_x_statistics, ls='--', lw=x_stat_lw, color='tab:blue', alpha=0.8, label='epsilon x stat')
-    axs[2].axhline(emittance_y_statistics, ls='--', lw=y_stat_lw, color='tab:orange', alpha=0.8, label='epsilon y stat')
-    axs[2].set_title(r'$\epsilon$')
-    axs[2].set_ylabel(r'$\epsilon$')
-    axs[2].grid(True, alpha=0.3)
-    axs[2].legend(fontsize=9)
-
-    axs[3].plot(levels, gamma_x_fit, marker=x_marker, lw=x_lw, label='gamma x fit', color='tab:blue')
-    axs[3].plot(levels, gamma_y_fit, marker=y_marker, lw=y_lw, label='gamma y fit', color='tab:orange')
-    axs[3].axhline(gamma_x_statistics, ls='--', lw=x_stat_lw, color='tab:blue', alpha=0.8, label='gamma x stat')
-    axs[3].axhline(gamma_y_statistics, ls='--', lw=y_stat_lw, color='tab:orange', alpha=0.8, label='gamma y stat')
-    axs[3].plot(levels, gamma_cs_x, marker=x_marker, lw=x_lw, ls='--', label='gamma x Snyder', color='tab:green')
-    axs[3].plot(levels, gamma_cs_y, marker=y_marker, lw=y_lw, ls='--', label='gamma y Snyder', color='tab:red')
-    axs[3].set_title(r'$\gamma$')
-    axs[3].set_ylabel(r'$\gamma$')
-    axs[3].grid(True, alpha=0.3)
-    axs[3].legend(fontsize=9)
-
-    for ax in axs:
-        ax.set_xticks(levels)
-        ax.set_xticklabels(labels, rotation=30, ha='right')
-
-    if axis_limits is not None:
-        if axis_limits.get("alpha") is not None:
-            axs[0].set_ylim(axis_limits["alpha"])
-        if axis_limits.get("beta") is not None:
-            axs[1].set_ylim(axis_limits["beta"])
-        if axis_limits.get("epsilon") is not None:
-            axs[2].set_ylim(axis_limits["epsilon"])
-        if axis_limits.get("gamma") is not None:
-            axs[3].set_ylim(axis_limits["gamma"])
-
-    title = "Twiss evolution from fit"
-    if surface_label is not None:
-        title += f" - {surface_label}"
-    fig.suptitle(title)
-
-    fig.tight_layout(rect=[0, 0, 1, 0.96])
-
-    if show:
-        plt.show()
-
-    return fig
-
-def build_twiss_fit_frames(
-    statistics_reference,
-    twiss_cuts_dataframe,
-):
-    """
-    Build one PNG frame per scoring surface.
-
-    Each frame shows alpha, beta, gamma and emittance as a
-    function of KDE cut percentage, for both x-x' and y-y'.
-    """
-
-    if (
-        twiss_cuts_dataframe is None
-        or twiss_cuts_dataframe.empty
-    ):
-        raise ValueError(
-            "twiss_cuts_dataframe is empty."
-        )
-
-    if "z_position" not in twiss_cuts_dataframe.columns:
-        raise KeyError(
-            "twiss_cuts_dataframe requires the "
-            "'z_position' column."
-        )
-
-    if isinstance(
-        statistics_reference,
-        dict,
-    ):
-        statistics_reference = list(
-            statistics_reference.values()
-        )
-
-    elif isinstance(
-        statistics_reference,
-        tuple,
-    ):
-        statistics_reference = list(
-            statistics_reference
-        )
-
-    elif not isinstance(
-        statistics_reference,
-        list,
-    ):
-        statistics_reference = [
-            statistics_reference
-        ]
-
-    cut_levels = [
-        ("90", 90.0, "90%"),
-        ("75", 75.0, "75%"),
-        ("6065", 60.65, "60.65%"),
-        ("50", 50.0, "50%"),
-        ("10", 10.0, "10%"),
-    ]
-
-    cut_percentages = np.asarray(
-        [
-            item[1]
-            for item in cut_levels
-        ],
-        dtype=float,
-    )
-
-    cut_labels = [
-        item[2]
-        for item in cut_levels
-    ]
-
-    parameter_prefixes = {
-        "alpha": "alpha",
-        "beta": "beta",
-        "gamma": "gamma",
-        "epsilon": "epsilon",
-    }
-
-    required_columns = [
-        "z_position",
-    ]
-
-    for parameter in parameter_prefixes:
-        for plane in ("x", "y"):
-            for suffix, _, _ in cut_levels:
-                required_columns.append(
-                    f"{parameter}{plane}{suffix}"
-                )
-
-    missing_columns = [
-        column
-        for column in required_columns
-        if column not in twiss_cuts_dataframe.columns
-    ]
-
-    if missing_columns:
-        raise KeyError(
-            "Missing KDE-cut columns in "
-            "twiss_cuts_dataframe:\n"
-            + "\n".join(
-                missing_columns
-            )
-        )
-
-    stats_by_z = {}
-
-    for item in statistics_reference:
-        if not isinstance(item, dict):
-            continue
-
-        if "z_position" not in item:
-            continue
-
-        z_position = float(
-            item["z_position"]
-        )
-
-        stats_by_z[z_position] = item
-
-    frames = []
-    options = []
-
-    for _, row in twiss_cuts_dataframe.iterrows():
-        z_position = float(
-            row["z_position"]
-        )
-
-        matching_stats = None
-
-        for z_stats, stats in stats_by_z.items():
-            if np.isclose(
-                z_position,
-                z_stats,
-                rtol=0.0,
-                atol=1e-9,
-            ):
-                matching_stats = stats
-                break
-
-        if matching_stats is None:
-            print(
-                f"WARNING: no reference Twiss statistics "
-                f"found for z={z_position} cm. "
-                "This surface is skipped."
-            )
-            continue
-
-        alpha_x_cuts = np.asarray(
-            [
-                float(
-                    row[f"alphax{suffix}"]
-                )
-                for suffix, _, _ in cut_levels
-            ],
-            dtype=float,
-        )
-
-        alpha_y_cuts = np.asarray(
-            [
-                float(
-                    row[f"alphay{suffix}"]
-                )
-                for suffix, _, _ in cut_levels
-            ],
-            dtype=float,
-        )
-
-        beta_x_cuts = np.asarray(
-            [
-                float(
-                    row[f"betax{suffix}"]
-                )
-                for suffix, _, _ in cut_levels
-            ],
-            dtype=float,
-        )
-
-        beta_y_cuts = np.asarray(
-            [
-                float(
-                    row[f"betay{suffix}"]
-                )
-                for suffix, _, _ in cut_levels
-            ],
-            dtype=float,
-        )
-
-        gamma_x_cuts = np.asarray(
-            [
-                float(
-                    row[f"gammax{suffix}"]
-                )
-                for suffix, _, _ in cut_levels
-            ],
-            dtype=float,
-        )
-
-        gamma_y_cuts = np.asarray(
-            [
-                float(
-                    row[f"gammay{suffix}"]
-                )
-                for suffix, _, _ in cut_levels
-            ],
-            dtype=float,
-        )
-
-        emittance_x_cuts = np.asarray(
-            [
-                float(
-                    row[f"epsilonx{suffix}"]
-                )
-                for suffix, _, _ in cut_levels
-            ],
-            dtype=float,
-        )
-
-        emittance_y_cuts = np.asarray(
-            [
-                float(
-                    row[f"epsilony{suffix}"]
-                )
-                for suffix, _, _ in cut_levels
-            ],
-            dtype=float,
-        )
-
-        fig = _plot_one_surface_twiss_evolution(
-            cut_percentages=cut_percentages,
-            cut_labels=cut_labels,
-
-            alpha_x_cuts=alpha_x_cuts,
-            alpha_y_cuts=alpha_y_cuts,
-            alpha_x_statistics=float(
-                matching_stats["alpha_x"]
-            ),
-            alpha_y_statistics=float(
-                matching_stats["alpha_y"]
-            ),
-
-            beta_x_cuts=beta_x_cuts,
-            beta_y_cuts=beta_y_cuts,
-            beta_x_statistics=float(
-                matching_stats["beta_x"]
-            ),
-            beta_y_statistics=float(
-                matching_stats["beta_y"]
-            ),
-
-            gamma_x_cuts=gamma_x_cuts,
-            gamma_y_cuts=gamma_y_cuts,
-            gamma_x_statistics=float(
-                matching_stats["gamma_x"]
-            ),
-            gamma_y_statistics=float(
-                matching_stats["gamma_y"]
-            ),
-
-            emittance_x_cuts=emittance_x_cuts,
-            emittance_y_cuts=emittance_y_cuts,
-            emittance_x_statistics=float(
-                matching_stats["emittance_x"]
-            ),
-            emittance_y_statistics=float(
-                matching_stats["emittance_y"]
-            ),
-
-            surface_label=f"{z_position:.3f} cm",
-
-            axis_limits=None,
-
-            show=False,
-        )
-
-        frames.append(
-            fig_to_png_bytes(
-                fig
-            )
-        )
-
-        plt.close(
-            fig
-        )
-
-        options.append(
-            (
-                f"{z_position:.3f} cm",
-                len(options),
-            )
-        )
-
-    if not frames:
-        raise RuntimeError(
-            "No Twiss KDE-cut frames were generated. "
-            "Check matching z_position values and "
-            "Twiss input keys."
-        )
-
-    return frames, options
-
-def build_twiss_fit_framesi(statistics_filtered, twiss_results_xxp, twiss_results_yyp):
-    frames = []
-
-    def _to_list(obj):
-        if isinstance(obj, (list, tuple)):
-            return list(obj)
-        return [obj]
-
-    def _extract_surface_series(surface_results):
-        if not isinstance(surface_results, (list, tuple)):
-            raise TypeError(f"Attesa lista di dict per superficie, trovato {type(surface_results)}")
-
-        level_results = [r for r in surface_results if isinstance(r, dict) and "level" in r]
-
-        if len(level_results) == 0:
-            raise ValueError("Nessun risultato Twiss con chiave 'level' trovato per questa superficie.")
-
-        levels = np.array([float(r["level"]) for r in level_results], dtype=float)
-        alpha = np.array([float(r["alpha"]) for r in level_results], dtype=float)
-        beta = np.array([float(r["beta"]) for r in level_results], dtype=float)
-        gamma = np.array([float(r["gamma"]) for r in level_results], dtype=float)
-        epsilon = np.array([float(r["epsilon"]) for r in level_results], dtype=float)
-        gamma_cs = np.array([float(r["gamma_cs"]) if "gamma_cs" in r else float(r["gamma_cs"]) for r in level_results], dtype=float)
-
-        labels = [r.get("label", f"{100.0 * float(r['level']) / np.max(levels):.2f}% peak density") for r in level_results]
-
-        order = np.argsort(levels)
-
-        return {
-            "level": levels[order],
-            "alpha": alpha[order],
-            "beta": beta[order],
-            "gamma": gamma[order],
-            "gamma_cs": gamma_cs[order],
-            "epsilon": epsilon[order],
-            "label": np.array(labels, dtype=object)[order],
-        }
-
-    statistics_filtered = _to_list(statistics_filtered)
-    twiss_results_xxp = _to_list(twiss_results_xxp)
-    twiss_results_yyp = _to_list(twiss_results_yyp)
-
-    n_surfaces = min(len(statistics_filtered), len(twiss_results_xxp), len(twiss_results_yyp))
-
-    for i in range(n_surfaces):
-        rs = statistics_filtered[i]
-        rx_surface = _extract_surface_series(twiss_results_xxp[i])
-        ry_surface = _extract_surface_series(twiss_results_yyp[i])
-
-        if not isinstance(rs, dict):
-            continue
-
-        if "z_position" in rs:
-            surface_label = f"{rs['z_position']} cm"
-        else:
-            surface_label = f"surface {i}"
-
-        fig = _plot_one_surface_twiss_evolution(
-            levels=rx_surface["level"],
-            labels=rx_surface["label"],
-
-            alpha_x_fit=rx_surface["alpha"],
-            alpha_y_fit=ry_surface["alpha"],
-            alpha_x_statistics=rs["alpha_x"],
-            alpha_y_statistics=rs["alpha_y"],
-
-            beta_x_fit=rx_surface["beta"],
-            beta_y_fit=ry_surface["beta"],
-            beta_x_statistics=rs["beta_x"],
-            beta_y_statistics=rs["beta_y"],
-
-            gamma_x_fit=rx_surface["gamma"],
-            gamma_y_fit=ry_surface["gamma"],
-            gamma_x_statistics=rs["gamma_x"],
-            gamma_y_statistics=rs["gamma_y"],
-
-            gamma_cs_x=rx_surface["gamma_cs"],
-            gamma_cs_y=ry_surface["gamma_cs"],
-
-            emittance_x_fit=rx_surface["epsilon"],
-            emittance_y_fit=ry_surface["epsilon"],
-            emittance_x_statistics=rs["emittance_x"],
-            emittance_y_statistics=rs["emittance_y"],
-
-            surface_label=surface_label,
-            axis_limits=None,
-            show=False
-        )
-
-        frames.append(fig_to_png_bytes(fig))
-
-    options = []
-    for i in range(n_surfaces):
-        rs = statistics_filtered[i]
-        if isinstance(rs, dict) and "z_position" in rs:
-            label = f"{rs['z_position']} cm"
-        else:
-            label = f"surface {i}"
-        options.append((label, i))
-
-    return frames, options
-
-def plot_evolution_twiss_fit(
-    statistics_reference,
-    twiss_cuts_dataframe,
-    show=True,
-):
-    """
-    Interactive slider: one scoring surface at a time.
-
-    Each displayed frame shows the Twiss parameters calculated
-    with different KDE-based elliptical cuts, compared to the
-    reference statistical Twiss values at that scoring surface.
-    """
-
-    frames, options = build_twiss_fit_frames(
-        statistics_reference=statistics_reference,
-        twiss_cuts_dataframe=twiss_cuts_dataframe,
-    )
-
-    if not show:
-        return {
-            "frames": frames,
-            "options": options,
-        }
-
-    return {
-        "frames": frames,
-        "options": options,
-    }
-
-
-def plot_comparison_twiss_parameters(
-    statistics_reference,
-    twiss_cuts_dataframe,
-    target_suffix="6065",
-    target_label="60.65% peak density",
-    dataset_label="",
-    show=True,
-):
-    """
-    Compare Twiss parameters along scoring surfaces.
-
-    Solid curves:
-        Reference Twiss statistics from the standard beam analysis.
-
-    Dashed curves:
-        Twiss parameters obtained after the KDE-based elliptical cut
-        selected by target_suffix, normally 6065 for 60.65% peak density.
-    """
-
-    if (
-        twiss_cuts_dataframe is None
-        or twiss_cuts_dataframe.empty
-    ):
-        raise ValueError(
-            "twiss_cuts_dataframe is empty."
-        )
-
-    if "z_position" not in twiss_cuts_dataframe.columns:
-        raise KeyError(
-            "twiss_cuts_dataframe needs column "
-            "'z_position'."
-        )
-
-    if isinstance(statistics_reference, dict):
-        statistics_reference = list(
-            statistics_reference.values()
-        )
-
-    elif isinstance(statistics_reference, tuple):
-        statistics_reference = list(
-            statistics_reference
-        )
-
-    elif not isinstance(statistics_reference, list):
-        statistics_reference = [
-            statistics_reference
-        ]
-
-    reference_by_z = {}
-
-    for item in statistics_reference:
-        if not isinstance(item, dict):
-            continue
-
-        if "z_position" not in item:
-            continue
-
-        reference_by_z[
-            float(item["z_position"])
-        ] = item
-
-    z_values = twiss_cuts_dataframe[
-        "z_position"
-    ].to_numpy(
-        dtype=float
-    )
-
-    parameter_configs = [
-        {
-            "name": "alpha",
-            "title": "Twiss α",
-            "ylabel": "α",
-            "reference_x": "alpha_x",
-            "reference_y": "alpha_y",
-        },
-        {
-            "name": "beta",
-            "title": "Twiss β",
-            "ylabel": "β [mm/mrad]",
-            "reference_x": "beta_x",
-            "reference_y": "beta_y",
-        },
-        {
-            "name": "gamma",
-            "title": "Twiss γ",
-            "ylabel": "γ [mrad/mm]",
-            "reference_x": "gamma_x",
-            "reference_y": "gamma_y",
-        },
-        {
-            "name": "epsilon",
-            "title": "Emittance ε",
-            "ylabel": "ε [mm·mrad]",
-            "reference_x": "emittance_x",
-            "reference_y": "emittance_y",
-        },
-    ]
-
-    x_reference = {
-        config["name"]: []
-        for config in parameter_configs
-    }
-
-    y_reference = {
-        config["name"]: []
-        for config in parameter_configs
-    }
-
-    valid_rows = []
-
-    for row_index, z_position in enumerate(
-        z_values
-    ):
-        matching_stats = None
-
-        for z_stat, stats in reference_by_z.items():
-            if np.isclose(
-                z_position,
-                z_stat,
-                rtol=0.0,
-                atol=1e-9,
-            ):
-                matching_stats = stats
-                break
-
-        if matching_stats is None:
-            print(
-                f"WARNING: no reference statistics at "
-                f"z={z_position} cm."
-            )
-            continue
-
-        valid_rows.append(
-            row_index
-        )
-
-        for config in parameter_configs:
-            parameter_name = config["name"]
-
-            x_reference[
-                parameter_name
-            ].append(
-                float(
-                    matching_stats[
-                        config["reference_x"]
-                    ]
-                )
-            )
-
-            y_reference[
-                parameter_name
-            ].append(
-                float(
-                    matching_stats[
-                        config["reference_y"]
-                    ]
-                )
-            )
-
-    if not valid_rows:
-        raise RuntimeError(
-            "No scoring surface in twiss_cuts_dataframe "
-            "matched statistics_reference."
-        )
-
-    valid_rows = np.asarray(
-        valid_rows,
-        dtype=int,
-    )
-
-    z_values = z_values[
-        valid_rows
-    ]
-
-    fig, axes = plt.subplots(
-        2,
-        2,
-        figsize=(15, 10),
-        sharex=True,
-    )
-
-    axes = axes.ravel()
-
-    for config, ax in zip(
-        parameter_configs,
-        axes,
-    ):
-        parameter_name = config["name"]
-
-        kde_x_column = (
-            f"{parameter_name}x{target_suffix}"
-        )
-
-        kde_y_column = (
-            f"{parameter_name}y{target_suffix}"
-        )
-
-        if (
-            kde_x_column
-            not in twiss_cuts_dataframe.columns
-        ):
-            raise KeyError(
-                f"Missing KDE-cut column "
-                f"'{kde_x_column}'."
-            )
-
-        if (
-            kde_y_column
-            not in twiss_cuts_dataframe.columns
-        ):
-            raise KeyError(
-                f"Missing KDE-cut column "
-                f"'{kde_y_column}'."
-            )
-
-        kde_x_values = twiss_cuts_dataframe[
-            kde_x_column
-        ].to_numpy(
-            dtype=float
-        )[valid_rows]
-
-        kde_y_values = twiss_cuts_dataframe[
-            kde_y_column
-        ].to_numpy(
-            dtype=float
-        )[valid_rows]
-
-        ax.plot(
-            z_values,
-            x_reference[parameter_name],
-            color="tab:blue",
-            marker="s",
-            linewidth=2.6,
-            label="Reference statistics x-x'",
-        )
-
-        ax.plot(
-            z_values,
-            y_reference[parameter_name],
-            color="tab:orange",
-            marker="o",
-            linewidth=2.0,
-            label="Reference statistics y-y'",
-        )
-
-        ax.plot(
-            z_values,
-            kde_x_values,
-            color="tab:blue",
-            linestyle="--",
-            marker="s",
-            linewidth=2.0,
-            alpha=0.85,
-            label=f"KDE cut x-x' ({target_label})",
-        )
-
-        ax.plot(
-            z_values,
-            kde_y_values,
-            color="tab:orange",
-            linestyle="--",
-            marker="o",
-            linewidth=1.7,
-            alpha=0.85,
-            label=f"KDE cut y-y' ({target_label})",
-        )
-
-        ax.set_title(
-            config["title"]
-        )
-
-        ax.set_xlabel(
-            "Scoring position [cm]"
-        )
-
-        ax.set_ylabel(
-            config["ylabel"]
-        )
-
-        ax.grid(
-            alpha=0.30
-        )
-
-        ax.legend(
-            fontsize=8,
-            loc="best",
-        )
-
-    title = (
-        "Twiss evolution across scoring surfaces: "
-        "reference statistics vs KDE elliptical cut"
-    )
-
-    if dataset_label:
-        title += f" — {dataset_label}"
-
-    fig.suptitle(
-        title,
-        fontsize=15,
-    )
-
-    fig.tight_layout(
-        rect=[0.0, 0.03, 1.0, 0.95]
-    )
-
-    if show:
-        plt.show()
-
-    return fig
-
-def plot_comparison_twiss_parameterso(
-    twiss_cuts_dataframe,
-    dataset_label="",
-    show=True,
-):
-    """
-    Plot Twiss parameters obtained from different KDE-based
-    elliptical cuts.
-
-    The dataframe must be the output of:
-        twiss_from_different_cuts(...)
-
-    It contains Twiss values computed with beam_parameters()
-    on the particles selected inside a fitted ellipse for each
-    KDE density level.
-
-    No standard masked dataset is used in this plot.
-    """
-
-    if (
-        twiss_cuts_dataframe is None
-        or twiss_cuts_dataframe.empty
-    ):
-        raise ValueError(
-            "twiss_cuts_dataframe is empty."
-        )
-
-    if "z_position" not in twiss_cuts_dataframe.columns:
-        raise KeyError(
-            "Column 'z_position' is missing from "
-            "twiss_cuts_dataframe."
-        )
-
-    z_positions = twiss_cuts_dataframe[
-        "z_position"
-    ].to_numpy(
-        dtype=float
-    )
-
-    cut_levels = [
-        ("90", "90% peak density"),
-        ("75", "75% peak density"),
-        ("6065", "60.65% peak density"),
-        ("50", "50% peak density"),
-        ("10", "10% peak density"),
-    ]
-
-    parameter_configs = [
-        {
-            "parameter": "alpha",
-            "axis_title": "Twiss α",
-            "ylabel": "α",
-        },
-        {
-            "parameter": "beta",
-            "axis_title": "Twiss β",
-            "ylabel": "β [mm/mrad]",
-        },
-        {
-            "parameter": "gamma",
-            "axis_title": "Twiss γ",
-            "ylabel": "γ [mrad/mm]",
-        },
-        {
-            "parameter": "epsilon",
-            "axis_title": "Emittance ε",
-            "ylabel": "ε [mm·mrad]",
-        },
-    ]
-
-    fig, axes = plt.subplots(
-        2,
-        2,
-        figsize=(15, 10),
-        sharex=True,
-    )
-
-    axes = axes.ravel()
-
-    colors = plt.cm.viridis(
-        np.linspace(
-            0.05,
-            0.95,
-            len(cut_levels),
-        )
-    )
-
-    line_styles = {
-        "x": "-",
-        "y": "--",
-    }
-
-    markers = {
-        "x": "o",
-        "y": "s",
-    }
-
-    for config, ax in zip(
-        parameter_configs,
-        axes,
-    ):
-        parameter = config["parameter"]
-        plotted_curves = 0
-
-        for (
-            suffix,
-            level_label,
-        ), color in zip(
-            cut_levels,
-            colors,
-        ):
-            for plane in ("x", "y"):
-                column_name = (
-                    f"{parameter}_{plane}_{suffix}"
-                )
-
-                if (
-                    column_name
-                    not in twiss_cuts_dataframe.columns
-                ):
-                    print(
-                        f"WARNING: missing column "
-                        f"'{column_name}'."
-                    )
-                    continue
-
-                values = twiss_cuts_dataframe[
-                    column_name
-                ].to_numpy(
-                    dtype=float
-                )
-
-                finite_mask = (
-                    np.isfinite(z_positions)
-                    & np.isfinite(values)
-                )
-
-                if not np.any(finite_mask):
-                    continue
-
-                ax.plot(
-                    z_positions[finite_mask],
-                    values[finite_mask],
-                    color=color,
-                    linestyle=line_styles[plane],
-                    marker=markers[plane],
-                    linewidth=1.8,
-                    markersize=4,
-                    alpha=0.90,
-                    label=(
-                        f"{plane}-{plane}' | "
-                        f"{level_label}"
-                    ),
-                )
-
-                plotted_curves += 1
-
-        ax.set_title(
-            config["axis_title"]
-        )
-
-        ax.set_xlabel(
-            "Scoring position [cm]"
-        )
-
-        ax.set_ylabel(
-            config["ylabel"]
-        )
-
-        ax.grid(
-            alpha=0.30
-        )
-
-        if plotted_curves > 0:
-            ax.legend(
-                title="Plane and KDE level",
-                fontsize=7,
-                ncol=2,
-                loc="best",
-            )
-
-        else:
-            ax.text(
-                0.5,
-                0.5,
-                "No valid data",
-                transform=ax.transAxes,
-                ha="center",
-                va="center",
-            )
-
-    title = (
-        "Twiss parameters from KDE-based "
-        "elliptical cuts"
-    )
-
-    if dataset_label:
-        title += f" — {dataset_label}"
-
-    fig.suptitle(
-        title,
-        fontsize=15,
-    )
-
-    fig.tight_layout(
-        rect=[0.0, 0.03, 1.0, 0.95]
-    )
-
-    if show:
-        plt.show()
-
-    return fig
-
 
 def plot_comparison(results_masked_vacuum, results_masked_air, results_original_vacuum, results_original_air, show = True):
     
@@ -6464,23 +3703,6 @@ def plot_comparison(results_masked_vacuum, results_masked_air, results_original_
 
     return fig1, fig2
 
-
-def get_percentile (statistics_original):
-
-    value_ranges = {
-        'x - coordinate': (1, 99),
-        'y - coordinate': (1, 99),
-        'x_prime':        (1, 99),
-        'y_prime':        (1, 99),
-        'theta':            (0, 98),
-        'delta energy':   (0, 98),
-    }
-
-    return value_ranges
-
-
-import numpy as np
-
 try:
     from sklearn.covariance import MinCovDet
     _HAS_SKLEARN = True
@@ -6505,6 +3727,20 @@ def _estimate_center_cov(vf, robust=True, mcd_support_fraction=None,
     mu = vf.mean(axis=0)
     cov = np.cov(vf, rowvar=False)
     return mu, cov
+
+def percentile_cut(percentile_ranges, df, cols):
+    if not cols or df.empty:
+        return df.copy()
+
+    df_out = df.copy()
+    for col in cols:
+        p_low, p_high = percentile_ranges[col]
+        col_data = df_out[col].dropna().values
+        low_c = np.percentile(col_data, p_low)
+        high_c = np.percentile(col_data, p_high)
+        mask_col = (df_out[col] >= low_c) & (df_out[col] <= high_c)
+        df_out.loc[~mask_col, col] = np.nan
+    return df_out
 
 def theta_percentile_cut(
     df,
@@ -6705,6 +3941,8 @@ def apply_dataset_cleaning_cut(
     theta_percentile_min=None,
     theta_percentile_max=None,
     ellipse_peak_fraction=None,
+    angle_percentile_min=None,
+    angle_percentile_max=None
 ):
     """
     Apply exactly one final cleaning cut.
@@ -6862,262 +4100,124 @@ def apply_dataset_cleaning_cut(
             f"{theta_upper:.6g}] | "
             f"kept {len(df_theta_cleaned)}/{len(df)} rows."
         )
-
         return df_theta_cleaned
+    # ============================================================
+    # ANGLE PERCENTILE CUT ONLY
+    # ============================================================   
 
-    raise ValueError(
-        f"Unsupported cut_mode={cut_mode!r}. "
-        "Use 'ellipse' or 'theta'."
-    )
+    if cut_mode == "angle_percentile":
+        
+        missing_columns = [
+            column
+            for column in ("x_prime", "y_prime")
+            if column not in df.columns
+        ]
 
-def apply_dataset_cleaning_cuti(
-    df,
-    cut_mode,
-    theta_percentile_min=0.0,
-    theta_percentile_max=99.0,
-    ellipse_peak_fraction=0.1,
-):
-    """
-    Return a cleaned copy of one scoring-surface dataframe.
-
-    cut_mode == "ellipse":
-        Keep particles inside the row-wise x-x' AND y-y' ellipses.
-
-    cut_mode == "theta":
-        Keep particles whose theta is inside the requested
-        percentile interval.
-    """
-
-    if df is None:
-        raise ValueError(
-            "Input dataframe cannot be None."
-        )
-
-    if df.empty:
-        return df.copy()
-
-    cut_mode = str(
-        cut_mode
-    ).strip().lower()
-
-    if cut_mode == "ellipse":
-        return ellipse_cut(
-            df,
-            pairs=[
-                ("x - coordinate", "x_prime"),
-                ("y - coordinate", "y_prime"),
-            ],
-            peak_fraction=float(
-                ellipse_peak_fraction
-            ),
-            robust=True,
-        )
-
-    if cut_mode == "theta":
-        if "theta" not in df.columns:
+        if missing_columns:
             raise KeyError(
-                "Column 'theta' is required "
-                "for cleaning_cut_mode='theta'."
+                "Missing columns required when "
+                "cut_mode='angle_percentile': "
+                f"{missing_columns}."
             )
 
-        theta_min_percentile = float(
-            theta_percentile_min
+        if angle_percentile_min is None:
+            raise ValueError(
+                "angle_percentile_min is required when "
+                "cut_mode='angle_percentile'."
+            )
+
+        if angle_percentile_max is None:
+            raise ValueError(
+                "angle_percentile_max is required when "
+                "cut_mode='angle_percentile'."
+            )
+
+        angle_percentile_min = float(
+            angle_percentile_min
         )
 
-        theta_max_percentile = float(
-            theta_percentile_max
+        angle_percentile_max = float(
+            angle_percentile_max
         )
 
         if (
-            theta_min_percentile < 0.0
-            or theta_max_percentile > 100.0
-            or theta_min_percentile >= theta_max_percentile
+            not np.isfinite(angle_percentile_min)
+            or not np.isfinite(angle_percentile_max)
+            or not (
+                0.0
+                <= angle_percentile_min
+                < angle_percentile_max
+                <= 100.0
+            )
         ):
             raise ValueError(
-                "Theta cut requires: "
-                "0 <= theta_percentile_min < "
-                "theta_percentile_max <= 100."
+                "Angle percentiles must be finite and satisfy "
+                "0 <= min < max <= 100."
             )
 
-        theta_values = pd.to_numeric(
-            df["theta"],
+        xp_values = pd.to_numeric(
+            df["x_prime"],
             errors="coerce",
-        ).to_numpy(
-            dtype=float
+        ).to_numpy(dtype=float)
+
+        yp_values = pd.to_numeric(
+            df["y_prime"],
+            errors="coerce",
+        ).to_numpy(dtype=float)
+
+        finite_mask = (
+            np.isfinite(xp_values)
+            & np.isfinite(yp_values)
         )
 
-        finite_mask = np.isfinite(
-            theta_values
-        )
-
-        if np.count_nonzero(finite_mask) == 0:
+        if not np.any(finite_mask):
             return df.iloc[0:0].copy()
 
-        theta_finite = theta_values[
-            finite_mask
-        ]
-
-        theta_lower = float(
-            np.percentile(
-                theta_finite,
-                theta_min_percentile,
-            )
+        xp_lower, xp_upper = np.percentile(
+            xp_values[finite_mask],
+            [
+                angle_percentile_min,
+                angle_percentile_max,
+            ],
         )
 
-        theta_upper = float(
-            np.percentile(
-                theta_finite,
-                theta_max_percentile,
-            )
+        yp_lower, yp_upper = np.percentile(
+            yp_values[finite_mask],
+            [
+                angle_percentile_min,
+                angle_percentile_max,
+            ],
         )
 
         keep_mask = (
             finite_mask
-            & (theta_values >= theta_lower)
-            & (theta_values <= theta_upper)
+            & (xp_values >= xp_lower)
+            & (xp_values <= xp_upper)
+            & (yp_values >= yp_lower)
+            & (yp_values <= yp_upper)
         )
 
-        df_cleaned = df.loc[
+        df_angle_cleaned = df.loc[
             keep_mask
         ].copy()
 
         print(
-            f"Theta cleaning: "
-            f"[{theta_percentile_min:.2f}%, "
-            f"{theta_percentile_max:.2f}%] | "
-            f"theta=[{theta_lower:.6g}, "
-            f"{theta_upper:.6g}] | "
-            f"N={len(df_cleaned)}/{len(df)}"
+            f"Angular percentile cut: "
+            f"[{angle_percentile_min:.3f}%, "
+            f"{angle_percentile_max:.3f}%] | "
+            f"x_prime range: "
+            f"[{xp_lower:.6g}, {xp_upper:.6g}] mrad | "
+            f"y_prime range: "
+            f"[{yp_lower:.6g}, {yp_upper:.6g}] mrad | "
+            f"kept {len(df_angle_cleaned)}/{len(df)} rows."
         )
 
-        return df_cleaned
+        return df_angle_cleaned
 
     raise ValueError(
-        f"Unsupported cleaning cut mode: "
-        f"'{cut_mode}'. "
-        "Use 'ellipse' or 'theta'."
+        f"Unsupported cut_mode={cut_mode!r}. "
+        "Use 'ellipse' or 'theta' or 'angle_percentile'."
     )
-
-def apply_cleaning_cut(
-    df,
-    cut_mode="ellipse",
-    theta_percentile_range=(0.0, 99.0),
-    ellipse_pairs=(
-        ("x - coordinate", "x_prime"),
-        ("y - coordinate", "y_prime"),
-    ),
-    ellipse_peak_fraction=0.1,
-    ellipse_robust=True,
-):
-    """
-    Apply the selected final cleaning cut to a single scoring surface.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Filtered data from one scoring surface.
-
-    cut_mode : str
-        "ellipse" or "theta".
-
-    theta_percentile_range : tuple[float, float]
-        Percentile range used when cut_mode == "theta".
-
-    ellipse_pairs : tuple
-        Phase-space column pairs used for the elliptical cut.
-
-    ellipse_peak_fraction : float
-        Tail probability retained by the elliptical cut.
-
-    ellipse_robust : bool
-        Use robust covariance estimation for ellipse_cut().
-
-    Returns
-    -------
-    pandas.DataFrame
-        Rows surviving the selected cleaning procedure.
-    """
-
-    if df is None:
-        raise ValueError(
-            "df cannot be None."
-        )
-
-    if df.empty:
-        return df.copy()
-
-    cut_mode = str(
-        cut_mode
-    ).strip().lower()
-
-    if cut_mode == "ellipse":
-        return ellipse_cut(
-            df,
-            pairs=list(ellipse_pairs),
-            peak_fraction=float(
-                ellipse_peak_fraction
-            ),
-            robust=bool(
-                ellipse_robust
-            ),
-        )
-
-    if cut_mode == "theta":
-        theta_min_percentile, theta_max_percentile = (
-            theta_percentile_range
-        )
-
-        return theta_percentile_cut(
-            df,
-            percentile_min=theta_min_percentile,
-            percentile_max=theta_max_percentile,
-            theta_column="theta",
-        )
-
-    raise ValueError(
-        f"Unknown cut_mode '{cut_mode}'. "
-        "Use 'ellipse' or 'theta'."
-    )
-
-def ellipse_cuti(df, pairs, peak_fraction=0.005, robust=True,
-                mcd_support_fraction=None):
-
-    if df.empty or not pairs:
-        return df.copy()
-
-    df_out = df.copy()
-    r2 = -2.0 * np.log(peak_fraction)
-
-    for c1, c2 in pairs:
-        if c1 not in df_out.columns or c2 not in df_out.columns:
-            continue
-
-        v = df_out[[c1, c2]].values.astype(float)
-        finite = np.isfinite(v).all(axis=1)
-        if finite.sum() < 10:
-            continue
-
-        vf = v[finite]
-
-        mu, cov = _estimate_center_cov(
-            vf, robust=robust, mcd_support_fraction=mcd_support_fraction)
-
-        try:
-            cov_inv = np.linalg.inv(cov)
-        except np.linalg.LinAlgError:
-            cov_inv = np.linalg.pinv(cov)
-
-        diff = v - mu
-        d2 = np.einsum('ij,jk,ik->i', diff, cov_inv, diff)
-
-        inside = np.isfinite(d2) & (d2 <= r2)
-        outside = ~inside
-
-        df_out.loc[df_out.index[outside], c1] = np.nan
-        df_out.loc[df_out.index[outside], c2] = np.nan
-
-    return df_out
-
 
 def percentile_cut(percentile_ranges, df, cols):
     if not cols or df.empty:
@@ -7131,32 +4231,6 @@ def percentile_cut(percentile_ranges, df, cols):
         high_c = np.percentile(col_data, p_high)
         mask_col = (df_out[col] >= low_c) & (df_out[col] <= high_c)
         df_out.loc[~mask_col, col] = np.nan
-    return df_out
-
-
-def hybrid_cut(df,
-               ellipse_pairs=(('x - coordinate', 'x_prime'),
-                              ('y - coordinate', 'y_prime')),
-               square_cols=('theta', 'delta energy'),
-               square_ranges=None,
-               peak_fraction=0.1,
-               robust=True,
-               mcd_support_fraction=None):
-    
-    if square_ranges is None:
-        square_ranges = {
-            'theta':        (0, 98),
-            'delta energy': (0, 99),
-        }
-
-    df_out = ellipse_cut(df, list(ellipse_pairs),
-                         peak_fraction=peak_fraction,
-                         robust=robust,
-                         mcd_support_fraction=mcd_support_fraction)
-
-    square_cols = [c for c in square_cols if c in df_out.columns]
-    df_out = percentile_cut(square_ranges, df_out, square_cols)
-
     return df_out
 
 
@@ -7305,9 +4379,7 @@ def analyze_surface_masked(
 
     if energy_fit_function is langau_curve:
         x_scale_factor = (
-            1.0
-            if particle_type == "proton"
-            else 0.05
+            1.0 if particle_type == "proton" else 0.05
         )
 
         (
@@ -7337,6 +4409,7 @@ def analyze_surface_masked(
             "delta energy",
             binning=energy_binning,
         )
+
     # ---------------------------------------------------------------
     # Theta fit:
     # performed on the masked DataFrame.
@@ -7729,9 +4802,51 @@ def analyze_surface_filt(df, surface_data_original_cut,  z_position, label, ripp
     emittance_x, alpha_x, beta_x, gamma_x = beam_parameters(surface_df, 'x - coordinate', 'x_prime')
     emittance_y, alpha_y, beta_y, gamma_y = beam_parameters(surface_df, 'y - coordinate', 'y_prime')
 
-    cov_x_stat = np.cov(surface_df['x - coordinate'], surface_df['x_prime'])[0, 1]
-    cov_y_stat = np.cov(surface_df['y - coordinate'], surface_df['y_prime'])[0, 1]
+        # Momenti diretti nel piano x-x'.
+    values_x = surface_df[
+        ["x - coordinate", "x_prime"]
+    ].to_numpy(dtype=float)
 
+    values_x = values_x[
+        np.all(np.isfinite(values_x), axis=1)
+    ]
+
+    if len(values_x) < 2:
+        raise ValueError(
+            f"Troppo poche coppie finite x-x' a z={z_position}."
+        )
+
+    P_measured_x = np.cov(
+        values_x.T,
+        ddof=0,
+    )
+
+    variance_x = float(P_measured_x[0, 0])
+    cov_x_stat = float(P_measured_x[0, 1])
+    variance_xp = float(P_measured_x[1, 1])
+
+    # Momenti diretti nel piano y-y'.
+    values_y = surface_df[
+        ["y - coordinate", "y_prime"]
+    ].to_numpy(dtype=float)
+
+    values_y = values_y[
+        np.all(np.isfinite(values_y), axis=1)
+    ]
+
+    if len(values_y) < 2:
+        raise ValueError(
+            f"Troppo poche coppie finite y-y' a z={z_position}."
+        )
+
+    P_measured_y = np.cov(
+        values_y.T,
+        ddof=0,
+    )
+
+    variance_y = float(P_measured_y[0, 0])
+    cov_y_stat = float(P_measured_y[0, 1])
+    variance_yp = float(P_measured_y[1, 1])
 
     #_, _, mut_x, sigmat_x, dft_x = tstudent_fit_on_hist_with_baseline(surface_df, 'x - coordinate')
     #_, _, mut_y, sigmat_y, dft_y = tstudent_fit_on_hist_with_baseline(surface_df, 'y - coordinate')
@@ -7796,7 +4911,7 @@ def analyze_surface_filt(df, surface_data_original_cut,  z_position, label, ripp
         #'sigmat_yp': sigmat_yp,
 
     }
-    return statistics, surface_df
+    return statistics, surface_df, surface_df_variations
 
 def analyze_dataset(
     df_original,
@@ -7809,6 +4924,8 @@ def analyze_dataset(
     theta_percentile_min=0.0,
     theta_percentile_max=99.0,
     ellipse_peak_fraction=0.1,
+    angle_percentile_min=0.0,
+    angle_percentile_max=99.0
 ):
     """
     Analyze one dataset across all scoring surfaces.
@@ -7908,10 +5025,11 @@ def analyze_dataset(
     if cleaning_cut_mode not in (
         "ellipse",
         "theta",
+        "angle_percentile"
     ):
         raise ValueError(
             "cleaning_cut_mode must be "
-            "'ellipse' or 'theta'."
+            "'ellipse', 'theta', or 'angle_percentile'."
         )
 
     theta_percentile_min = float(
@@ -7925,6 +5043,9 @@ def analyze_dataset(
     ellipse_peak_fraction = float(
         ellipse_peak_fraction
     )
+
+    angle_percentile_max = float(angle_percentile_max)
+    angle_percentile_min = float(angle_percentile_min)
 
     if cleaning_cut_mode == "theta":
         if (
@@ -7946,6 +5067,28 @@ def analyze_dataset(
                 "ellipse_peak_fraction must satisfy "
                 "0 < ellipse_peak_fraction < 1."
             )
+        
+    if cleaning_cut_mode == "angle_percentile":
+        angle_percentile_min = float(angle_percentile_min)
+        angle_percentile_max = float(angle_percentile_max)
+
+        if (
+            not np.isfinite(angle_percentile_min)
+            or not np.isfinite(angle_percentile_max)
+            or not (
+                0.0
+                <= angle_percentile_min
+                < angle_percentile_max
+                <= 100.0
+            )
+        ):
+            raise ValueError(
+                "Angle percentiles: expected "
+                "0 <= min < max <= 100. "
+                f"Received min={angle_percentile_min}, "
+                f"max={angle_percentile_max}."
+            )
+
 
     results_original = []
     results_filtered = []
@@ -7956,6 +5099,7 @@ def analyze_dataset(
     all_surface_masked = []
 
     all_variations_masked = []
+    all_variations_filtered = []
 
     stored_surface_plots = []
     stored_distribution_plots = []
@@ -7979,6 +5123,13 @@ def analyze_dataset(
         print(
             "Ellipse peak fraction: "
             f"{ellipse_peak_fraction:.6g}"
+        )
+
+    elif cleaning_cut_mode == "angle_percentile":
+        print(
+            "Angle percentile range: "
+            f"{angle_percentile_min:.2f}% "
+            f"to {angle_percentile_max:.2f}%"
         )
 
     print(
@@ -8064,6 +5215,12 @@ def analyze_dataset(
             ellipse_peak_fraction=(
                 ellipse_peak_fraction
             ),
+            angle_percentile_max=(
+                angle_percentile_max
+            ),
+            angle_percentile_min=(
+                angle_percentile_min
+            )
         )
 
         print(
@@ -8107,6 +5264,14 @@ def analyze_dataset(
         df_masked_complete = pd.DataFrame(
             columns=df_filtered.columns
         )
+
+    all_surface_filtered.clear()
+    all_surface_masked.clear()
+
+    del df_surf_original
+    del df_surf_filtered
+    del df_surf_masked
+
 
     # ============================================================
     # SECOND PASS:
@@ -8218,6 +5383,7 @@ def analyze_dataset(
         (
             statistics_filtered,
             surface_data_filtered_current,
+            surface_data_filtered_variations_current,
         ) = analyze_surface_filt(
             df_surf_filtered,
             surface_data_original_variations,
@@ -8273,6 +5439,15 @@ def analyze_dataset(
                 "ellipse_peak_fraction"
             ] = ellipse_peak_fraction
 
+        elif cleaning_cut_mode == "angle_percentile":
+            statistics_masked[
+                "angle_percentile_min"
+            ] = angle_percentile_min
+
+            statistics_masked[
+                "angle_percentile_max"
+            ] = angle_percentile_max
+
         results_original.append(
             statistics_original.copy()
         )
@@ -8289,6 +5464,10 @@ def analyze_dataset(
             surface_data_masked_variations_current.copy()
         )
 
+        all_variations_filtered.append(
+            surface_data_filtered_variations_current.copy()
+        )
+
         stored_surface_plots.append(
             {
                 "surface_df_original": (
@@ -8298,6 +5477,7 @@ def analyze_dataset(
                 "surface_df_filtered": (
                     df_surf_filtered.copy()
                 ),
+                
 
                 # This is either ellipse-cleaned or theta-cleaned,
                 # depending on cleaning_cut_mode.
@@ -8380,16 +5560,7 @@ def analyze_dataset(
             columns=df_original.columns
         )
 
-    if all_surface_filtered:
-        surface_data_filtered = pd.concat(
-            all_surface_filtered,
-            ignore_index=True,
-        )
-
-    else:
-        surface_data_filtered = pd.DataFrame(
-            columns=df_filtered.columns
-        )
+    surface_data_filtered = df_filtered_complete
 
     if results_masked:
         surface_data_masked = pd.concat(
@@ -8410,9 +5581,18 @@ def analyze_dataset(
             all_variations_masked,
             ignore_index=True,
         )
-
     else:
         surface_data_masked_variations = pd.DataFrame()
+
+    if all_variations_filtered:
+        surface_data_filtered_variations = pd.concat(
+            all_variations_filtered,
+            ignore_index=True,
+        )
+    else:
+        surface_data_filtered_variations = pd.DataFrame()
+
+
 
     print(
         f"\n========== END ANALYSIS: {label} =========="
@@ -8442,390 +5622,8 @@ def analyze_dataset(
         stored_surface_plots,
         stored_distribution_plots,
         surface_data_masked_variations,
+        surface_data_filtered_variations
     )
-
-def analyze_dataseto(
-    df_original,
-    df_filtered,
-    label,
-    positions_scoring,
-    ripple_filters,
-    particle_type,
-    cleaning_cut_mode,
-    
-
-):
-    """
-    Analysis pipeline:
-
-    df_original
-        -> sequential filtering
-        -> df_filtered
-        -> elliptical cut per scoring surface
-        -> df_masked
-        -> all fits and variations on df_masked only.
-
-    No percentile cut is applied.
-    """
-
-    results_original = []
-    results_filtered = []
-    results_masked = []
-
-    all_filtered = []
-    all_masked = []
-
-    all_surface_original = []
-    all_surface_filtered = []
-    all_surface_masked = []
-    all_variations_masked = []
-
-    stored_surface_plots = []
-    stored_distribution_plots = []
-
-    print(f"\nSurface scoring in {label}:")
-
-    print(
-        df_original[
-            "scoring_surface"
-        ].value_counts().sort_index()
-    )
-
-    # ---------------------------------------------------------------
-    # First phase:
-    # create the filtered and masked DataFrames for every surface.
-    # ---------------------------------------------------------------
-
-    for position in positions_scoring:
-        df_surf_original = df_original.loc[
-            df_original["scoring_surface"]
-            == position
-        ].copy()
-
-        df_surf_filtered = df_filtered.loc[
-            df_filtered["scoring_surface"]
-            == position
-        ].copy()
-
-        df_surf_masked = ellipse_cut(
-            df_surf_filtered,
-            pairs=[
-                (
-                    "x - coordinate",
-                    "x_prime",
-                ),
-                (
-                    "y - coordinate",
-                    "y_prime",
-                ),
-            ],
-            peak_fraction=0.1,
-            robust=True,
-        )
-
-        print(
-            f"{label} | z = {position} cm | "
-            f"original = {len(df_surf_original)} | "
-            f"filtered = {len(df_surf_filtered)} | "
-            f"masked = {len(df_surf_masked)}"
-        )
-
-        all_surface_original.append(
-            df_surf_original
-        )
-
-        all_filtered.append(
-            df_surf_filtered
-        )
-
-        all_masked.append(
-            df_surf_masked
-        )
-
-    if all_filtered:
-        df_filtered_complete = pd.concat(
-            all_filtered,
-            ignore_index=True,
-        )
-    else:
-        df_filtered_complete = pd.DataFrame(
-            columns=df_filtered.columns
-        )
-
-    if all_masked:
-        df_masked_complete = pd.concat(
-            all_masked,
-            ignore_index=True,
-        )
-    else:
-        df_masked_complete = pd.DataFrame(
-            columns=df_filtered.columns
-        )
-
-    # ---------------------------------------------------------------
-    # Second phase:
-    # all fits, all Twiss quantities and all variations are computed
-    # from df_masked_complete only.
-    # ---------------------------------------------------------------
-
-    for position in positions_scoring:
-        df_surf_original = df_original.loc[
-            df_original["scoring_surface"]
-            == position
-        ].copy()
-
-        df_surf_filtered = df_filtered_complete.loc[
-            df_filtered_complete["scoring_surface"]
-            == position
-        ].copy()
-
-        df_surf_masked = df_masked_complete.loc[
-            df_masked_complete["scoring_surface"]
-            == position
-        ].copy()
-
-        if df_surf_masked.empty:
-            print(
-                f"WARNING: no masked particles at "
-                f"z = {position} cm. Surface skipped."
-            )
-            continue
-
-        statistics_original, surface_data_original, surface_data_original_cut = analyze_surface_orig(df_original, df_filtered, position, label, ripple_filters=ripple_filters, positions_scoring=positions_scoring, particle_type=particle_type)
-        statistics_filtered, surface_data_filtered = analyze_surface_filt(df_surf_filtered, surface_data_original_cut, position, label, ripple_filters=ripple_filters, positions_scoring=positions_scoring, particle_type=particle_type)
-        (
-            statistics_masked,
-            surface_data_masked,
-            surface_data_masked_variations,
-        ) = analyze_surface_masked(
-            df_masked=df_masked_complete,
-            z_position=position,
-            label=label,
-            ripple_filters=ripple_filters,
-            positions_scoring=positions_scoring,
-            particle_type=particle_type,
-        )
-
-        # -----------------------------------------------------------
-        # Compatibility containers.
-        #
-        # All fitted quantities are masked quantities.
-        # The filtered DataFrame is retained only as an intermediate
-        # dataset for diagnostics and particle-count comparisons.
-        # -----------------------------------------------------------
-
-        results_masked.append(
-            statistics_masked
-        )
-
-        results_filtered.append(
-            statistics_filtered.copy()
-        )
-
-        results_original.append(
-            statistics_original.copy()
-        )
-
-        all_surface_masked.append(
-            surface_data_masked
-        )
-
-        all_variations_masked.append(
-            surface_data_masked_variations
-        )
-
-        stored_surface_plots.append(
-            {
-                "surface_df_original": (
-                    df_surf_original.copy()
-                ),
-
-                "surface_df_filtered": (
-                    df_surf_filtered.copy()
-                ),
-
-                "surface_df_masked": (
-                    surface_data_masked.copy()
-                ),
-
-                "surface_data_masked": (
-                    surface_data_masked_variations.copy()
-                ),
-
-                # Backward-compatible name:
-                # it now contains masked variations, not percentile-cut data.
-                "surface_data_masked_cut": (
-                    surface_data_masked_variations.copy()
-                ),
-
-                "z_position": position,
-
-                "theta_peak": statistics_masked[
-                    "theta_peak"
-                ],
-
-                "A": statistics_masked[
-                    "Atheta"
-                ],
-
-                "B": statistics_masked[
-                    "Btheta"
-                ],
-
-                "sigma": statistics_masked[
-                    "sigma_theta"
-                ],
-
-                "label": label,
-            }
-        )
-
-        stored_distribution_plots.append(
-            {
-                "surface_df_original": (
-                    df_surf_original.copy()
-                ),
-
-                "surface_df_filtered": (
-                    df_surf_filtered.copy()
-                ),
-
-                "surface_df_masked": (
-                    surface_data_masked.copy()
-                ),
-
-                "z_position": position,
-                "label": label,
-            }
-        )
-
-    if all_surface_original:
-        surface_data_original = pd.concat(
-            all_surface_original,
-            ignore_index=True,
-        )
-    else:
-        surface_data_original = pd.DataFrame()
-
-    if all_filtered:
-        surface_data_filtered = pd.concat(
-            all_filtered,
-            ignore_index=True,
-        )
-    else:
-        surface_data_filtered = pd.DataFrame()
-
-    if all_surface_masked:
-        surface_data_masked = pd.concat(
-            all_surface_masked,
-            ignore_index=True,
-        )
-    else:
-        surface_data_masked = pd.DataFrame()
-
-    if all_variations_masked:
-        surface_data_masked_variations = pd.concat(
-            all_variations_masked,
-            ignore_index=True,
-        )
-    else:
-        surface_data_masked_variations = pd.DataFrame()
-
-    return (
-        results_original,
-        results_filtered,
-        results_masked,
-
-        df_filtered_complete,
-        df_masked_complete,
-
-        surface_data_original,
-        surface_data_filtered,
-        surface_data_masked,
-
-        stored_surface_plots,
-        stored_distribution_plots,
-
-        surface_data_masked_variations,
-    )
-
-def analyze_dataseti(df_original, df_filtered, label, positions_scoring, ripple_filters, particle_type):
-    selected_cols = [
-    'x - coordinate',
-    'y - coordinate',
-    'x_prime',
-    'y_prime',
-    'theta',
-    'delta energy']
-
-
-    results_original = [] 
-    results_filtered = []
-    results_masked = []
-    all_filtered = []
-    all_masked= []
-    stored_surface_plots = []
-    stored_distribution_plots = []
-
-    print(f"\nSurface Scoring in {label}:")
-    print(df_original['scoring_surface'].value_counts().sort_index())
-
-    for position in positions_scoring:
-
-        statistics_original, surface_data_original, surface_data_original_cut = analyze_surface_orig(df_original, df_filtered, position, label, ripple_filters=ripple_filters, positions_scoring=positions_scoring, particle_type=particle_type)
-        
-        value_ranges = get_percentile(statistics_original)
-
-        df_surf_before = df_filtered[df_filtered['scoring_surface'] == position].copy()
-        #print(f"\n{label} | surface {position} mm")
-        #print(f"  N before filter: {len(df_surf_before)}")
-
-        df_masked_surf = ellipse_cut(
-        df_surf_before,
-        pairs=[
-            ("x - coordinate", "x_prime"),
-            ("y - coordinate", "y_prime"),
-        ],
-        peak_fraction=0.005,
-        robust=True,
-    )
-        all_filtered.append(df_surf_before)
-        all_masked.append(df_masked_surf)
-        statistics_filtered, surface_data_filtered = analyze_surface_filt(df_surf_before, surface_data_original_cut, position, label, ripple_filters=ripple_filters, positions_scoring=positions_scoring, particle_type=particle_type)
-        statistics_masked, surface_data_masked = analyze_surface_filt(df_masked_surf, surface_data_original_cut, position, label, ripple_filters=ripple_filters, positions_scoring=positions_scoring, particle_type=particle_type)
-        
-        stored_surface_plots.append({
-            "surface_df_original": surface_data_original.copy(),  
-            "surface_df_filtered": surface_data_filtered.copy(),  
-            "surface_df_masked": surface_data_masked.copy(),
-            "surface_data_original_cut": surface_data_original_cut.copy(),
-            "z_position": position,
-            "theta_peak": statistics_filtered["theta_peak"],
-            "A": statistics_filtered["Atheta"],
-            "B": statistics_filtered["Btheta"],
-            "sigma": statistics_filtered["sigma_theta"],
-            "label": label
-            })
-        results_original.append(statistics_original)
-        results_filtered.append(statistics_filtered)
-        results_masked.append(statistics_masked)
-
-        stored_distribution_plots.append({
-            "surface_df_original": surface_data_original.copy(),
-            "surface_df_filtered": surface_data_filtered.copy(),
-            "surface_df_masked": surface_data_masked.copy(),
-            "z_position": position,
-            "label": label
-            })
-
-        
-
-    df_filtered = pd.concat(all_filtered, ignore_index=True)
-    df_masked = pd.concat(all_masked, ignore_index = True)
-    
-
-    return results_original, results_filtered, results_masked, df_filtered,df_masked, surface_data_original, surface_data_filtered, surface_data_masked, stored_surface_plots, stored_distribution_plots, surface_data_masked_cut
-
 
 def setup_dataset(file_name, label, E_0, positions_scoring, tolerance, column_names, nRows=None):
     print(f"\nProcessing dataset: {label}")
@@ -8845,83 +5643,6 @@ def setup_dataset(file_name, label, E_0, positions_scoring, tolerance, column_na
     df_original = df.copy()
 
     return df_original
-
-
-def plot_cumulative_histogram_normalized_to_original(
-    df_original,
-    df_cut,
-    column,
-    bins=60,
-    fit_gaussian=True,
-    fit_t=True,
-    fit_on="cut"
-):
-
-    data_original = df_original[column].dropna().values
-    data_cut = df_cut[column].dropna().values
-
-
-    N_original = len(data_original)
-    N_cut = len(data_cut)
-
-    counts_cut, edges = np.histogram(data_cut, bins=bins, density=False)
-
-
-    cum_frac_orig = np.concatenate(([0.0], np.cumsum(counts_cut) / N_original))
-
-    if fit_on == "original":
-        fit_data = data_original
-    else:
-        fit_data = data_cut
-
-    gaussian_curve = None
-    t_curve = None
-
-    if fit_gaussian:
-        mu_g, sigma_g = stats.norm.fit(fit_data)
-        if fit_on == "cut":
-            gaussian_curve = (N_cut / N_original) * stats.norm.cdf(edges, loc=mu_g, scale=sigma_g)
-        else:
-            gaussian_curve = stats.norm.cdf(edges, loc=mu_g, scale=sigma_g)
-
-
-    if fit_t:
-        df_t, mu_t, sigma_t = stats.t.fit(fit_data)
-
-        if fit_on == "cut":
-            t_curve = (N_cut / N_original) * stats.t.cdf(edges, df_t, loc=mu_t, scale=sigma_t)
-        else:
-            t_curve = stats.t.cdf(edges, df_t, loc=mu_t, scale=sigma_t)
-
-    plt.figure(figsize=(9, 7))
-
-    plt.step(
-        edges, cum_frac_orig, where='post',
-        color='k', lw=2,
-        label='CDF'
-    )
-
-    if fit_gaussian:
-
-        plt.plot(
-            edges, gaussian_curve, 'b-', lw=2,
-            label=f'Gaussian fit'
-        )
-    if fit_t:
-
-        plt.plot(
-            edges, t_curve, 'r--', lw=2,
-            label=f'T-student fit'
-        )
-
-
-    plt.xlabel(column)
-    plt.ylabel('CDF')
-    plt.title(f"Normalized counts")
-    plt.grid(alpha=0.3)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
 
 def generate_comparison_dataframe(results_original_vacuum, results_original_air, positions_scoring):
     data = {
@@ -8957,14 +5678,24 @@ def generate_comparison_dataframe(results_original_vacuum, results_original_air,
     return dataframe_std
 
 
-def normalize_pdf(pdf, x):
-    pdf = np.asarray(pdf, float)
-    pdf = np.where(np.isfinite(pdf), pdf, 0.0)
-    area = np.trapezoid(pdf, x)
-    if area <= 0 or not np.isfinite(area):
-        pdf = np.zeros_like(x)
-        pdf[len(pdf) // 2] = 1.0
-        area = np.trapezoid(pdf, x)
+def normalize_pdf(pdf, xgrid):
+    """
+    Normalizza una PDF discreta affinché:
+        integral pdf(x) dx = 1
+    """
+    pdf = np.asarray(pdf, dtype=float).copy()
+    xgrid = np.asarray(xgrid, dtype=float)
+
+    pdf[~np.isfinite(pdf)] = 0.0
+    pdf = np.clip(pdf, 0.0, None)
+
+    area = np.trapezoid(pdf, xgrid)
+
+    if not np.isfinite(area) or area <= 0.0:
+        pdf[:] = 0.0
+        pdf[np.argmin(np.abs(xgrid))] = 1.0
+        area = np.trapezoid(pdf, xgrid)
+
     return pdf / area
 
 def sigma_from_pdf_norm(x, pdf):
@@ -8976,37 +5707,6 @@ def sigma_from_pdf_norm(x, pdf):
 
 from scipy.interpolate import interp1d
 from scipy.stats import t
-
-
-def pdf_projection(x_space_mm, theta_mrad_grid, pdf_angle, d_mm,sigma_x_target=None):
-
-    interpolation = interp1d(theta_mrad_grid, pdf_angle, kind='cubic',
-                             bounds_error=False, fill_value=0.0)
-    theta_eval = (x_space_mm / d_mm) * 1e3
-    pdf_space = np.maximum(interpolation(theta_eval), 0.0)
-
-    pdf_space = normalize_pdf(pdf_space, x_space_mm)
-
-    if sigma_x_target is None:
-        return pdf_space, interpolation
-
-
-    sigma_x_proj = sigma_from_pdf_norm(x_space_mm, pdf_space)
-    if sigma_x_proj <= 0:
-        return pdf_space, interpolation
-
-
-    scale = sigma_x_target / sigma_x_proj
-
-
-    x_scaled = x_space_mm * scale
-    interp_space = interp1d(x_scaled, pdf_space,
-                            kind='linear',
-                            bounds_error=False, fill_value=0.0)
-    pdf_space_corr = interp_space(x_space_mm)
-    pdf_space_corr = normalize_pdf(pdf_space_corr, x_space_mm)
-
-    return pdf_space_corr, interpolation
 
 
 def compute_all_stats(dataframe_std, ripple_filters): 
@@ -9320,34 +6020,6 @@ def get_checks_for_attr(stats_angle, attr):
     ])
     return checks, checks_delta
 
-def plot_checks (air_lengths, stats_angle, show = True):
-    checks_xp, checks_xp_delta = get_checks_for_attr(stats_angle, "xp")
-    checks_yp, checks_yp_delta = get_checks_for_attr(stats_angle, "yp")
-
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
-
-    ax1 = axes[0]
-    ax1.plot(air_lengths, checks_xp, 'o-', label=r"From integral data")
-    ax1.plot(air_lengths, checks_xp_delta, 's--', label=r"From differential data")
-    ax1.set_xlabel("Air length [mm]")
-    ax1.set_ylabel(r"Sigma [mrad/sqrt(mm))]")
-    ax1.set_title("X': Air scattering")
-    ax1.grid(alpha=0.3)
-    ax1.legend()
-
-    ax2 = axes[1]
-    ax2.plot(air_lengths, checks_yp, 'o-', label=r"From integral data")
-    ax2.plot(air_lengths, checks_yp_delta, 's--', label=r"From differential data")
-    ax2.set_xlabel("Air length [mm]")
-    ax2.set_title("Y': Air scattering")
-    ax2.grid(alpha=0.3)
-    ax2.legend()
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    if show:
-        plt.show()
-    return fig
-
-
 def analyze_surface_light(df_original, df_filtered, position, label,
                           use_filtered_for_delta=False):
 
@@ -9378,511 +6050,6 @@ def analyze_surface_light(df_original, df_filtered, position, label,
 
         return statistics, df_filt_surf
 
-def apply_percentile_cut(df_in, selected_cols, p_low, p_high, positions_scoring):
-    all_filtered = []
-
-    for pos in positions_scoring:
-        df_surf = df_in[df_in['scoring_surface'] == pos].copy()
-        value_ranges = {col: (p_low, p_high) for col in selected_cols}
-        df_surf_cut = percentile_cut(value_ranges, df_surf, selected_cols)
-        all_filtered.append(df_surf_cut)
-
-    return pd.concat(all_filtered, ignore_index=True)
-
-def compute_scattering_contributions_for_range(results_masked_vacuum,results_masked_air,results_original_vacuum,results_original_air,p_low, p_high, positions_scoring, ripple_filters = False):
-
-    print(f"\nPercentile range: {p_low}-{p_high}%")
-
-    data = {
-        "z [cm]": positions_scoring,
-        "STD(xp) Vacuum": [r["sigma_xp"] for r in results_masked_vacuum],
-        "STD(yp) Vacuum": [r["sigma_yp"] for r in results_masked_vacuum],
-        "STD(xp) Air":    [r["sigma_xp"] for r in results_masked_air],
-        "STD(yp) Air":    [r["sigma_yp"] for r in results_masked_air],
-        "STD(delta xp) Vacuum": [r["sigma_var_xp"] for r in results_original_vacuum],
-        "STD(delta yp) Vacuum": [r["sigma_var_yp"] for r in results_original_vacuum],
-        "STD(delta xp) Air":    [r["sigma_var_xp"] for r in results_original_air],
-        "STD(delta yp) Air":    [r["sigma_var_yp"] for r in results_original_air],
-        }
-    dataframe_std = pd.DataFrame(data)
-
-    stats_angle = {}
-    print("\033[1mAnalysis in angle.\033[0m")
-    for attr in ['xp', 'yp']:
-        vacuum_std = dataframe_std[f"STD({attr}) Vacuum"].values
-        air_std = dataframe_std[f"STD({attr}) Air"].values
-
-        vacuum_delta = dataframe_std[f"STD(delta {attr}) Vacuum"].values
-        air_delta = dataframe_std[f"STD(delta {attr}) Air"].values
-
-        if ripple_filters is False:
-
-            window_angle_std = vacuum_std[0]
-            nozzle_angle_std = np.sqrt(vacuum_std[1]**2 - vacuum_std[0]**2)
-
-            air_133 = np.sqrt(air_std[0]**2 - window_angle_std**2)
-            air_160 = np.sqrt(air_std[1]**2 - air_std[0]**2 - nozzle_angle_std**2)
-            air_293 = np.sqrt(air_std[1]**2 - nozzle_angle_std**2 - window_angle_std**2)
-            air_600  = np.sqrt(air_std[2]**2 - air_std[1]**2)
-            air_760 = np.sqrt(air_std[2]**2-air_std[0]**2-nozzle_angle_std**2)
-            air_893 = np.sqrt(air_std[2]**2 - nozzle_angle_std**2 - window_angle_std**2)
-            air_1000 = np.sqrt(air_std[3]**2 - air_std[2]**2)
-            air_1600 = np.sqrt(air_std[3]**2 - air_std[1]**2)
-            air_1760= np.sqrt(air_std[3]**2 - air_std[0]**2 - nozzle_angle_std**2)
-            air_1893 = np.sqrt(air_std[3]**2 - nozzle_angle_std**2 - window_angle_std**2)
-
-            check_133 = air_133 /np.sqrt(133)
-            check_160 = air_160 / np.sqrt(160)
-            check_293 = air_293/np.sqrt(293)
-            check_600  = air_600  / np.sqrt(600)
-            check_760 = air_760 / np.sqrt(760)
-            check_893 = air_893 /np.sqrt(893)
-            check_1000 = air_1000 / np.sqrt(1000)
-            check_1600 = air_1600 / np.sqrt(1600)
-            check_1760 = air_1760 / np.sqrt(1760)
-            check_1893 = air_1893 / np.sqrt(1893)
-
-            print()
-            print(f"\033[1m--From the standard deviations of the fit--\033[0m")
-            print()
-            print(f"Standard deviations in {attr[0]}':")
-            print(f"Vacuum window [mrad]: {window_angle_std:.15e}")
-            print(f"Nozzle [mrad]: {nozzle_angle_std:.15e}")
-            print(f"Verify Air [mrad/sqrt(mm)]: check on 13,3 cm of air: {check_133:.15e}, check on 16 cm of air: {check_160:.15e}, check on 29,3 cm of air: {check_293:.15e}")
-            print(f"Verify Air [mrad/sqrt(mm)]: check on 60 cm of air: {check_600:.15e}, check on 76 cm of air: {check_760:.15e}, check on 89,3 cm of air: {check_893:.15e}")
-            print(f"Verify Air [mrad/sqrt(mm)]: check on 100 cm of air: {check_1000:.15e}, check on 160 cm of air: {check_1600:.15e}, check on 1760 cm of air: {check_1760:.15e}")
-
-
-            window_angle_delta = vacuum_delta[0]
-            nozzle_angle_delta = vacuum_delta[1]
-
-            air_133_delta = np.sqrt(air_delta[0]**2 - window_angle_delta**2)
-            air_160_delta = np.sqrt(air_delta[1]**2 -nozzle_angle_delta**2)
-            air_293_delta = np.sqrt (air_delta[1]** 2 + air_delta[0]**2 - nozzle_angle_delta**2 - window_angle_delta**2)
-            air_600_delta  = air_delta[2]
-            air_760_delta = np.sqrt(air_delta[2]**2 + air_delta[1]**2-nozzle_angle_delta**2)
-            air_893_delta = np.sqrt(air_delta[2]**2  + air_delta[1]** 2 + air_delta[0]**2 - nozzle_angle_delta**2 - window_angle_delta**2)
-            air_1000_delta = air_delta[3]
-            air_1600_delta = np.sqrt(air_delta[3]**2 + air_delta[2]**2)
-            air_1760_delta= np.sqrt(air_delta[3]**2 + air_delta[2]**2  + air_delta[1]** 2 - nozzle_angle_delta**2)
-            air_1893_delta = np.sqrt(air_delta[3]**2 + air_delta[2]**2  + air_delta[1]** 2 + air_delta[0]**2 - nozzle_angle_delta**2 - window_angle_delta**2)
-
-            check_133_delta = air_133_delta /np.sqrt(133)
-            check_160_delta = air_160_delta / np.sqrt(160)
-            check_293_delta = air_293_delta/np.sqrt(293)
-            check_600_delta  = air_600_delta  / np.sqrt(600)
-            check_760_delta = air_760_delta / np.sqrt(760)
-            check_893_delta = air_893_delta/np.sqrt(893)
-            check_1000_delta = air_1000_delta / np.sqrt(1000)
-            check_1600_delta = air_1600_delta / np.sqrt(1600)
-            check_1760_delta = air_1760_delta / np.sqrt(1760)
-            check_1893_delta = air_1893_delta / np.sqrt(1893)
-
-            print()
-            print(f"\033[1m--From the deltas--\033[0m")
-            print()
-            print(f"Standard deviations in {attr[0]}':")
-            print(f"Vacuum window [mrad]: {window_angle_delta:.15e}")
-            print(f"Nozzle [mrad]: {nozzle_angle_delta:.15e}")
-            print(f"Verify Air [mrad/sqrt(mm)]: check on 13,3 cm of air: {check_133_delta:.15e}, check on 16 cm of air: {check_160_delta:.15e}, check on 29,3 cm of air: {check_293_delta:.15e}")
-            print(f"Verify Air [mrad/sqrt(mm)]: check on 60 cm of air: {check_600_delta:.15e}, check on 76 cm of air: {check_760_delta:.15e}, check on 89,3 cm of air: {check_893_delta:.15e}")
-            print(f"Verify Air [mrad/sqrt(mm)]: check on 100 cm of air: {check_1000_delta:.15e}, check on 160 cm of air: {check_1600_delta:.15e}, check on 1760 cm of air: {check_1760_delta:.15e}")
-
-            stats_angle[attr] = {
-                "window_angle_std": window_angle_std,
-                "nozzle_angle_std": nozzle_angle_std,
-                "air_133": air_133,
-                "air_160": air_160,
-                "air_293": air_293,
-                "air_600": air_600,
-                "air_760": air_760,
-                "air_893": air_893,
-                "air_1000": air_1000,
-                "air_1600": air_1600,
-                "air_1760": air_1760,
-                "air_1893": air_1893,
-                "check_133": check_133,
-                "check_160": check_160,
-                "check_293": check_293,
-                "check_600": check_600,
-                "check_760": check_760,
-                "check_893": check_893,
-                "check_1000": check_1000,
-                "check_1600": check_1600,
-                "check_1760": check_1760,
-                "check_1893": check_1893,
-                "window_angle_delta": window_angle_delta,
-                "nozzle_angle_delta": nozzle_angle_delta,
-                "air_133_delta": air_133_delta,
-                "air_160_delta": air_160_delta,
-                "air_293_delta": air_293_delta,
-                "air_600_delta": air_600_delta,
-                "air_760_delta": air_760_delta,
-                "air_893_delta": air_893_delta,
-                "air_1000_delta": air_1000_delta,
-                "air_1600_delta": air_1600_delta,
-                "air_1760_delta": air_1760_delta,
-                "air_1893_delta": air_1893_delta,
-                "check_133_delta": check_133_delta,
-                "check_160_delta": check_160_delta,
-                "check_293_delta": check_293_delta,
-                "check_600_delta": check_600_delta,
-                "check_760_delta": check_760_delta,
-                "check_893_delta": check_893_delta,
-                "check_1000_delta": check_1000_delta,
-                "check_1600_delta": check_1600_delta,
-                "check_1760_delta": check_1760_delta,
-                "check_1893_delta": check_1893_delta,
-            }
-        elif ripple_filters: 
-
-            window_angle_std = vacuum_std[0]
-            nozzle_ripple_angle_std = np.sqrt(vacuum_std[1]**2 - vacuum_std[0]**2)
-
-            air_133 = np.sqrt(air_std[0]**2 - window_angle_std**2)
-            air_160 = np.sqrt(air_std[1]**2 - air_std[0]**2 - nozzle_ripple_angle_std**2)
-            air_293 = np.sqrt(air_std[1]**2 - nozzle_ripple_angle_std**2 - window_angle_std**2)
-            air_600  = np.sqrt(air_std[2]**2 - air_std[1]**2)
-            air_760 = np.sqrt(air_std[2]**2-air_std[0]**2-nozzle_ripple_angle_std**2)
-            air_893 = np.sqrt(air_std[2]**2 - nozzle_ripple_angle_std**2 - window_angle_std**2)
-            air_1000 = np.sqrt(air_std[3]**2 - air_std[2]**2)
-            air_1600 = np.sqrt(air_std[3]**2 - air_std[1]**2)
-            air_1760= np.sqrt(air_std[3]**2 - air_std[0]**2 - nozzle_ripple_angle_std**2)
-            air_1893 = np.sqrt(air_std[3]**2 - nozzle_ripple_angle_std**2 - window_angle_std**2)
-
-            check_133 = air_133 /np.sqrt(133)
-            check_160 = air_160 / np.sqrt(160)
-            check_293 = air_293/np.sqrt(293)
-            check_600  = air_600  / np.sqrt(600)
-            check_760 = air_760 / np.sqrt(760)
-            check_893 = air_893 /np.sqrt(893)
-            check_1000 = air_1000 / np.sqrt(1000)
-            check_1600 = air_1600 / np.sqrt(1600)
-            check_1760 = air_1760 / np.sqrt(1760)
-            check_1893 = air_1893 / np.sqrt(1893)
-
-            print()
-            print(f"\033[1m--From the standard deviations of the fit--\033[0m")
-            print()
-            print(f"Standard deviations in {attr[0]}':")
-            print(f"Vacuum window [mrad]: {window_angle_std:.15e}")
-            print(f"Nozzle and Ripple filters [mrad]: {nozzle_ripple_angle_std:.15e}")
-            print(f"Verify Air [mrad/sqrt(mm)]: check on 13,3 cm of air: {check_133:.15e}, check on 16 cm of air: {check_160:.15e}, check on 29,3 cm of air: {check_293:.15e}")
-            print(f"Verify Air [mrad/sqrt(mm)]: check on 60 cm of air: {check_600:.15e}, check on 76 cm of air: {check_760:.15e}, check on 89,3 cm of air: {check_893:.15e}")
-            print(f"Verify Air [mrad/sqrt(mm)]: check on 100 cm of air: {check_1000:.15e}, check on 160 cm of air: {check_1600:.15e}, check on 1760 cm of air: {check_1760:.15e}")
-
-            window_angle_delta = vacuum_delta[0]
-            nozzle_ripple_angle_delta = vacuum_delta[1]
-
-            air_133_delta = np.sqrt(air_delta[0]**2 - window_angle_delta**2)
-            air_160_delta = np.sqrt(air_delta[1]**2 -nozzle_ripple_angle_delta**2)
-            air_293_delta = np.sqrt (air_delta[1]** 2 + air_delta[0]**2 - nozzle_ripple_angle_delta**2 - window_angle_delta**2)
-            air_600_delta  = air_delta[2]
-            air_760_delta = np.sqrt(air_delta[2]**2 + air_delta[1]**2-nozzle_ripple_angle_delta**2)
-            air_893_delta = np.sqrt(air_delta[2]**2  + air_delta[1]** 2 + air_delta[0]**2 - nozzle_ripple_angle_delta**2 - window_angle_delta**2)
-            air_1000_delta = air_delta[3]
-            air_1600_delta = np.sqrt(air_delta[3]**2 + air_delta[2]**2)
-            air_1760_delta= np.sqrt(air_delta[3]**2 + air_delta[2]**2  + air_delta[1]** 2 - nozzle_ripple_angle_delta**2)
-            air_1893_delta = np.sqrt(air_delta[3]**2 + air_delta[2]**2  + air_delta[1]** 2 + air_delta[0]**2 - nozzle_ripple_angle_delta**2 - window_angle_delta**2)
-
-            check_133_delta = air_133_delta /np.sqrt(133)
-            check_160_delta = air_160_delta / np.sqrt(160)
-            check_293_delta = air_293_delta/np.sqrt(293)
-            check_600_delta  = air_600_delta  / np.sqrt(600)
-            check_760_delta = air_760_delta / np.sqrt(760)
-            check_893_delta = air_893_delta/np.sqrt(893)
-            check_1000_delta = air_1000_delta / np.sqrt(1000)
-            check_1600_delta = air_1600_delta / np.sqrt(1600)
-            check_1760_delta = air_1760_delta / np.sqrt(1760)
-            check_1893_delta = air_1893_delta / np.sqrt(1893)
-
-            print()
-            print(f"\033[1m--From the deltas--\033[0m")
-            print()
-            print(f"Standard deviations in {attr[0]}':")
-            print(f"Vacuum window [mrad]: {window_angle_delta:.15e}")
-            print(f"Nozzle [mrad]: {nozzle_ripple_angle_delta:.15e}")
-            print(f"Verify Air [mrad/sqrt(mm)]: check on 13,3 cm of air: {check_133_delta:.15e}, check on 16 cm of air: {check_160_delta:.15e}, check on 29,3 cm of air: {check_293_delta:.15e}")
-            print(f"Verify Air [mrad/sqrt(mm)]: check on 60 cm of air: {check_600_delta:.15e}, check on 76 cm of air: {check_760_delta:.15e}, check on 89,3 cm of air: {check_893_delta:.15e}")
-            print(f"Verify Air [mrad/sqrt(mm)]: check on 100 cm of air: {check_1000_delta:.15e}, check on 160 cm of air: {check_1600_delta:.15e}, check on 1760 cm of air: {check_1760_delta:.15e}")
-
-            stats_angle[attr] = {
-                "window_angle_std": window_angle_std,
-                "nozzle_ripple_angle_std": nozzle_ripple_angle_std,
-                "air_133": air_133,
-                "air_160": air_160,
-                "air_293": air_293,
-                "air_600": air_600,
-                "air_760": air_760,
-                "air_893": air_893,
-                "air_1000": air_1000,
-                "air_1600": air_1600,
-                "air_1760": air_1760,
-                "air_1893": air_1893,
-                "check_133": check_133,
-                "check_160": check_160,
-                "check_293": check_293,
-                "check_600": check_600,
-                "check_760": check_760,
-                "check_893": check_893,
-                "check_1000": check_1000,
-                "check_1600": check_1600,
-                "check_1760": check_1760,
-                "check_1893": check_1893,
-                "window_angle_delta": window_angle_delta,
-                "nozzle_ripple_angle_delta": nozzle_ripple_angle_delta,
-                "air_133_delta": air_133_delta,
-                "air_160_delta": air_160_delta,
-                "air_293_delta": air_293_delta,
-                "air_600_delta": air_600_delta,
-                "air_760_delta": air_760_delta,
-                "air_893_delta": air_893_delta,
-                "air_1000_delta": air_1000_delta,
-                "air_1600_delta": air_1600_delta,
-                "air_1760_delta": air_1760_delta,
-                "air_1893_delta": air_1893_delta,
-                "check_133_delta": check_133_delta,
-                "check_160_delta": check_160_delta,
-                "check_293_delta": check_293_delta,
-                "check_600_delta": check_600_delta,
-                "check_760_delta": check_760_delta,
-                "check_893_delta": check_893_delta,
-                "check_1000_delta": check_1000_delta,
-                "check_1600_delta": check_1600_delta,
-                "check_1760_delta": check_1760_delta,
-                "check_1893_delta": check_1893_delta,
-            }
-
-
-    return stats_angle
-
-def comparison_percentile_cuts (particle_type, percentile_ranges, df_filtered_vacuum, df_filtered_air, df_original_vacuum, df_original_air, selected_cols, positions_scoring, show = True, ripple_filters = False): 
-        
-
-    stats_angle_by_range = {}
-
-    for p_low, p_high in percentile_ranges:
-        print(f"\n=== Analysis with percentile range: {p_low}-{p_high}% ===")
-
-        df_filtered_vacuum_p = apply_percentile_cut(df_filtered_vacuum, selected_cols, p_low, p_high, positions_scoring)
-        df_filtered_air_p    = apply_percentile_cut(df_filtered_air,    selected_cols, p_low, p_high, positions_scoring)
-
-        results_original_vacuum_p = []
-        results_masked_vacuum_p   = []
-        for pos in positions_scoring:
-
-            stats_vac_orig, _= analyze_surface_light(
-                df_original_vacuum,
-                df_filtered_vacuum_p,
-                pos,
-                "Vacuum"
-            )
-            results_original_vacuum_p.append(stats_vac_orig)
-
-            stats_vac_mask, _ = analyze_surface_light(
-                df_original_vacuum,
-                df_filtered_vacuum_p,
-                pos,
-                "Vacuum"
-            )
-            results_masked_vacuum_p.append(stats_vac_mask)
-
-        results_original_air_p = []
-        results_masked_air_p   = []
-        for pos in positions_scoring:
-            stats_air_orig, _ = analyze_surface_light(
-                df_original_air,
-                df_filtered_air_p,
-                pos,
-                "Air"
-            )
-            results_original_air_p.append(stats_air_orig)
-
-            stats_air_mask, _ = analyze_surface_light(
-                df_original_air,
-                df_filtered_air_p,
-                pos,
-                "Air"
-                )
-            results_masked_air_p.append(stats_air_mask)
-
-        stats_angle_p = compute_scattering_contributions_for_range(
-            results_masked_vacuum_p,
-            results_masked_air_p,
-            results_original_vacuum_p,
-            results_original_air_p,
-            p_low,
-            p_high,
-            positions_scoring, 
-            ripple_filters = ripple_filters
-            
-        )
-
-        stats_angle_by_range[(p_low, p_high)] = stats_angle_p
-
-        stats_angle_p = compute_scattering_contributions_for_range(
-            results_masked_vacuum_p,
-            results_masked_air_p,
-            results_original_vacuum_p,
-            results_original_air_p,
-            p_low,
-            p_high,
-            positions_scoring, 
-            ripple_filters = ripple_filters
-        )
-
-        stats_angle_by_range[(p_low, p_high)] = stats_angle_p
-
-    air_lengths = np.array([133.0, 160.0, 293.0, 600.0, 760.0, 893.0, 1000.0, 1600.0, 1760.0, 1893.0])
-
-    def get_checks_for_attr(stats_angle, attr):
-        s = stats_angle[attr]
-        checks = np.array(
-            [
-                s["check_133"],
-                s["check_160"],
-                s["check_293"],
-                s["check_600"],
-                s["check_760"],
-                s["check_893"],
-                s["check_1000"],
-                s["check_1600"],
-                s["check_1760"],
-                s["check_1893"],
-            ]
-        )
-        checks_delta = np.array(
-            [
-                s["check_133_delta"],
-                s["check_160_delta"],
-                s["check_293_delta"],
-                s["check_600_delta"],
-                s["check_760_delta"],
-                s["check_893_delta"],
-                s["check_1000_delta"],
-                s["check_1600_delta"],
-                s["check_1760_delta"],
-                s["check_1893_delta"],
-            ]
-        )
-
-        checks_int_noVW =(
-            [
-                s["check_160"],
-                s["check_600"],
-                s["check_760"],
-                s["check_1000"],
-                s["check_1600"],
-                s["check_1760"],
-            ]
-        )
-
-        checks_delta_noVW =(
-            [
-                s["check_160"],
-                s["check_600"],
-                s["check_760"],
-                s["check_1000"],
-                s["check_1600"],
-                s["check_1760"],
-            ]
-        )
-
-        
-        return checks, checks_delta, checks_int_noVW, checks_delta_noVW
-
-    colors = ["C0", "C1", "C2", "C3", "C4", "C5"] 
-    range_labels = {r: f"{r[0]}–{r[1]}%" for r in percentile_ranges}
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
-
-    ax_xp = axes[0]
-    ax_yp = axes[1]
-
-    for idx, p_range in enumerate(percentile_ranges):
-        stats_angle_p_range = stats_angle_by_range[p_range]
-        label_range = range_labels[p_range]
-        color = colors[idx % len(colors)]
-
-        checks_xp, checks_xp_delta,  checks_xp_int_noVW, checks_xp_delta_noVW = get_checks_for_attr(stats_angle_p_range, "xp")
-        checks_yp, checks_yp_delta , checks_yp_int_noVW, checks_yp_delta_noVW= get_checks_for_attr(stats_angle_p_range, "yp")
-
-        if particle_type == "proton":
-            p_range_chosen = (1, 99)
-
-        elif particle_type == "carbon ion":
-            p_range_chosen = (0.5, 99.5)
-
-        stats_angle_p_range_specific = stats_angle_by_range[p_range_chosen]
-        _, _,  checks_xp_int_noVW_specific, _ = get_checks_for_attr(stats_angle_p_range_specific, "xp")
-        _, _,  checks_yp_int_noVW_specific, _ = get_checks_for_attr(stats_angle_p_range_specific, "yp")
-        sigma_air_permm_xp = float(np.nanmean(checks_xp_int_noVW_specific))
-        sigma_air_permm_yp = float(np.nanmean(checks_yp_int_noVW_specific))
-        
-        mask_int_xp  = ~np.isnan(checks_xp)
-        mask_diff_xp = ~np.isnan(checks_xp_delta)
-        mask_int_yp  = ~np.isnan(checks_yp)
-        mask_diff_yp = ~np.isnan(checks_yp_delta)
-
-        print(f"\nPercentile range: {p_range_chosen}%")
-        print(f"X': Air scattering (mrad/sqrt(mm)): {sigma_air_permm_xp}")
-        print(f"Y': Air scattering (mrad/sqrt(mm)): {sigma_air_permm_yp}")
-
-        # X'
-        ax_xp.plot(
-            air_lengths[mask_int_xp],
-            checks_xp[mask_int_xp],
-            "o-",
-            color=color,
-            label=rf"{label_range} – integral",
-        )
-        ax_xp.plot(
-            air_lengths[mask_diff_xp] ,
-            checks_xp_delta[mask_diff_xp],
-            "s--",
-            color=color,
-            label=rf"{label_range} – differential",
-        )
-
-        # Y'
-        ax_yp.plot(
-            air_lengths[mask_int_yp],
-            checks_yp[mask_int_yp],
-            "o-",
-            color=color,
-            label=rf"{label_range} – integral",
-        )
-        ax_yp.plot(
-            air_lengths[mask_diff_yp] ,
-            checks_yp_delta[mask_diff_yp],
-            "s--",
-            color=color,
-            label=rf"{label_range} – differential",
-        )
-
-    ax_xp.set_xlabel("Air length [mm]")
-    ax_xp.set_ylabel(r"Sigma [mrad/sqrt(mm)]")
-    ax_xp.set_title("X': Air scattering")
-    ax_xp.grid(alpha=0.3)
-    ax_xp.legend(fontsize=8)
-
-    ax_yp.set_xlabel("Air length [mm]")
-    ax_yp.set_title("Y': Air scattering")
-    ax_yp.grid(alpha=0.3)
-    ax_yp.legend(fontsize=8)
-
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    if show: 
-        plt.show()
-
-
-
-    return fig, sigma_air_permm_xp, sigma_air_permm_yp
-
-
-import numpy as np
-
-from scipy.fft import fft, ifft, fftshift, ifftshift
-from scipy.optimize import curve_fit, minimize_scalar, brentq
 
 def sigma_from_gaussian_fit(x, pdf, fit_window=None):
     """Sigma dal FIT GAUSSIANO del core, robusto a ringing e rumore."""
@@ -9913,12 +6080,6 @@ def sigma_from_gaussian_fit(x, pdf, fit_window=None):
         return float(abs(popt[2]))
     except Exception:
         return sigma_from_pdf_norm(x, pdf)
-
-def measure_sigma(x, pdf, method="fit", fit_window=None):
-    """Dispatcher: method='fit' (consigliato) o 'moment'."""
-    if method == "moment":
-        return sigma_from_pdf_norm(x, pdf)
-    return sigma_from_gaussian_fit(x, pdf, fit_window=fit_window)
 
 
 def measure_sigma(
@@ -9999,32 +6160,7 @@ def measure_sigma(
 
     return sigma
 
-
-
-
-import numpy as np
 from scipy.fft import fft, ifft, next_fast_len
-
-
-def normalize_pdf(pdf, xgrid):
-    """
-    Normalizza una PDF discreta affinché:
-        integral pdf(x) dx = 1
-    """
-    pdf = np.asarray(pdf, dtype=float).copy()
-    xgrid = np.asarray(xgrid, dtype=float)
-
-    pdf[~np.isfinite(pdf)] = 0.0
-    pdf = np.clip(pdf, 0.0, None)
-
-    area = np.trapezoid(pdf, xgrid)
-
-    if not np.isfinite(area) or area <= 0.0:
-        pdf[:] = 0.0
-        pdf[np.argmin(np.abs(xgrid))] = 1.0
-        area = np.trapezoid(pdf, xgrid)
-
-    return pdf / area
 
 
 def validate_deconvolution_inputs(signal, kernel, xgrid):
@@ -10064,49 +6200,6 @@ def validate_deconvolution_inputs(signal, kernel, xgrid):
     kernel = np.where(np.isfinite(kernel), kernel, 0.0)
 
     return signal, kernel, xgrid, dx
-
-
-def linear_convolution_same_grid(pdf, kernel, xgrid):
-    """
-    Convoluzione lineare tra due PDF definite sulla stessa griglia centrata.
-
-    Restituisce una PDF sulla stessa griglia xgrid.
-    La convoluzione è una discretizzazione coerente di:
-        h(x) = integral f(u) g(x-u) du
-    """
-    pdf, kernel, xgrid, dx = validate_deconvolution_inputs(pdf, kernel, xgrid)
-
-    pdf = normalize_pdf(pdf, xgrid)
-    kernel = normalize_pdf(kernel, xgrid)
-
-    n = pdf.size
-    nfft = next_fast_len(2 * n - 1)
-
-    pdf_fft = fft(np.fft.ifftshift(pdf), nfft)
-    kernel_fft = fft(np.fft.ifftshift(kernel), nfft)
-
-    conv_full = np.real(ifft(pdf_fft * kernel_fft))
-    conv_full *= dx
-
-    conv_full = np.fft.fftshift(conv_full)
-
-    center = nfft // 2
-    half = n // 2
-
-    if n % 2 == 0:
-        conv_same = conv_full[center - half:center + half]
-    else:
-        conv_same = conv_full[center - half:center + half + 1]
-
-    if conv_same.size != n:
-        raise RuntimeError(
-            f"Unexpected convolution size: {conv_same.size}, expected {n}."
-        )
-
-    conv_same = np.where(np.isfinite(conv_same), conv_same, 0.0)
-    conv_same = np.clip(conv_same, 0.0, None)
-
-    return normalize_pdf(conv_same, xgrid)
 
 
 def wiener_deconvolution_fixed_lambda(
@@ -10677,24 +6770,6 @@ def find_optimal_lambda_forward(
 
     return best
 
-def deconvolution_error_for_lambda(lambd, signal, kernel, xgrid, penalty_strength=0.0):
-    candidate = wiener_deconvolution_fixed_lambda(signal, kernel, xgrid, lambd)
-    reco = reconvolve_same_grid(candidate, kernel, xgrid)
-
-    signal_n = normalize_pdf(signal, xgrid)
-    resid = reco - signal_n
-
-    data_term = np.trapezoid(resid**2, xgrid)
-
-    if penalty_strength > 0.0:
-        dx = float(xgrid[1] - xgrid[0])
-        grad = np.gradient(candidate, dx)
-        roughness = np.trapezoid(grad**2, xgrid)
-    else:
-        roughness = 0.0
-
-    return data_term + penalty_strength * roughness, candidate, reco
-
 def _objective(lambd, signal, kernel, xgrid, w_forward=1.0, w_rough=0.0,
                sigma_method="fit", fit_window=None):
     cand = wiener_deconvolution_fixed_lambda(signal, kernel, xgrid, lambd)
@@ -10750,95 +6825,6 @@ def find_optimal_lambda(signal, kernel, xgrid,
             break
     return {"lambda_opt": best[1], "deconvolved_opt": best[2],
             "sigma_opt": best[3], "error_opt": best[0]}
-
-
-def find_optimal_lambda_wiener(
-    signal,
-    kernel,
-    xgrid,
-    lambda_min=1e-20,
-    lambda_max=1e5,
-    n_grid=15,
-    n_iter=6,
-    shrink_factor=0.35,
-    penalty_strength=0.0,
-    verbose=False
-):
-    signal = np.asarray(signal, dtype=float)
-    kernel = np.asarray(kernel, dtype=float)
-    xgrid = np.asarray(xgrid, dtype=float)
-
-    lo = float(min(lambda_min, lambda_max))
-    hi = float(max(lambda_min, lambda_max))
-
-    best_lambda = None
-    best_error = np.inf
-    best_candidate = None
-    best_reco = None
-    history = []
-
-    for it in range(int(n_iter)):
-        lambdas = np.logspace(np.log10(lo), np.log10(hi), int(n_grid))
-        errors = []
-
-        for lam in lambdas:
-            err, cand, reco = deconvolution_error_for_lambda(
-                lam, signal, kernel, xgrid,
-                penalty_strength=penalty_strength
-            )
-            errors.append(err)
-
-            if err < best_error:
-                best_error = float(err)
-                best_lambda = float(lam)
-                best_candidate = cand.copy()
-                best_reco = reco.copy()
-
-        errors = np.asarray(errors, dtype=float)
-        idx = int(np.argmin(errors))
-
-        history.append({
-            "iteration": it,
-            "lambda_grid": lambdas.copy(),
-            "errors": errors.copy(),
-            "best_lambda_iteration": float(lambdas[idx]),
-            "best_error_iteration": float(errors[idx]),
-        })
-
-        if verbose:
-            print(f"[iter {it}] best lambda = {lambdas[idx]:.6e}, error = {errors[idx]:.6e}")
-
-        if idx == 0:
-            left = lambdas[0]
-            right = lambdas[1]
-        elif idx == len(lambdas) - 1:
-            left = lambdas[-2]
-            right = lambdas[-1]
-        else:
-            left = lambdas[idx - 1]
-            right = lambdas[idx + 1]
-
-        logc = np.log10(lambdas[idx])
-        halfwidth = 0.5 * (np.log10(right) - np.log10(left))
-        halfwidth = max(halfwidth * shrink_factor, 0.08)
-
-        lo = 10**(logc - halfwidth)
-        hi = 10**(logc + halfwidth)
-
-        lo = max(lo, lambda_min)
-        hi = min(hi, lambda_max)
-
-        if hi <= lo * 1.0000001:
-            break
-
-    result = {
-        "lambda_opt": best_lambda,
-        "error_opt": best_error,
-        "deconvolved_opt": best_candidate,
-        "reconvolved_opt": best_reco,
-        "history": history
-    }
-    return result
 
 
 def deconvolve_wiener(
@@ -11249,7 +7235,7 @@ def deconvolutionFinal_with_air(
     lambd=None,
     lambda_method="forward",
     target_relative_residual=1.0e-3,
-    lambda_min=1.0e-20,
+    lambda_min=1.0e-12,
     lambda_max=1.0e8,
     roughness_weight=1.0e-2,
     sigma_method="fit",
@@ -11684,12 +7670,17 @@ def deconvolutionFinal_with_air(
             fit_window=fit_window,
         )
 
-        sigma_kernel_pdf_i = measure_sigma(
-            xbin,
-            pdf_scattering_kernel,
-            method="fit",
-            fit_window=None,
-        )
+        # Sigma del modello gaussiano usato per costruire il kernel.
+        sigma_kernel_pdf_i = float(sigma_spatial_kernel)
+
+        if (
+            not np.isfinite(sigma_kernel_pdf_i)
+            or sigma_kernel_pdf_i < 0.0
+        ):
+            raise ValueError(
+                f"Kernel di scattering non valido a z={z_current}: "
+                f"sigma={sigma_kernel_pdf_i}."
+            )
 
         sigma_measured_from_pdf[i] = sigma_measured_pdf_i
         sigma_kernel_values[i] = sigma_kernel_pdf_i
@@ -12103,6 +8094,8 @@ def deconvolutionFinal_with_air(
         pdf_space,
         diagnostics,
     )
+
+
 def build_measured_space_pdfs(xbin, sigma_meas_space):
     """
     Costruisce PDF gaussiane normalizzate dalle sigma misurate.
@@ -12162,8 +8155,9 @@ def run_analysis(
     z_nozzle_start,
     z_nozzle_end,
     ripple_filters=False,
+    covariance0_x=None,
+    covariance0_y=None
 ):
-
     positions_scoring_mm = np.array([-960.0, -600.0, 0.0, 1000.0])
 
     def _prepend_source(results):
@@ -12281,22 +8275,70 @@ def run_analysis(
         sigma_meas_y_air,
         sigma_meas_theta_air,
     ) = _prepend_source(results_masked_air)
+    
+    if covariance0_x is None or covariance0_y is None:
+        raise ValueError(
+            "run_analysis richiede covariance0_x e "
+            "covariance0_y al piano z0."
+        )
+
+    covariance0_by_plane = {
+        "xp": float(covariance0_x),
+        "yp": float(covariance0_y),
+    }
+
+    if not all(
+        np.isfinite(value)
+        for value in covariance0_by_plane.values()
+    ):
+        raise ValueError(
+            "Le covarianze iniziali devono essere finite."
+        )
+
+    covariance_measured_by_plane = {
+        "xp": np.concatenate((
+            [covariance0_by_plane["xp"]],
+            np.asarray(
+                [r["cov_x"] for r in results_masked_vacuum],
+                dtype=float,
+            ),
+        )),
+        "yp": np.concatenate((
+            [covariance0_by_plane["yp"]],
+            np.asarray(
+                [r["cov_y"] for r in results_masked_vacuum],
+                dtype=float,
+            ),
+        )),
+    }
+
+    expected_shape = (positions_scoring_mm.size + 1,)
+
+    for plane, values in covariance_measured_by_plane.items():
+        if values.shape != expected_shape:
+            raise ValueError(
+                f"{plane}: attese {expected_shape[0]} "
+                f"covarianze, ricevuta shape {values.shape}."
+            )
+
+        if not np.all(np.isfinite(values)):
+            raise ValueError(
+                f"{plane}: covarianze non finite."
+            )
 
     sigma_window_attr = {
-        "xp": float(stats_angle["xp"]["window_angle_std"]),
-        "yp": float(stats_angle["yp"]["window_angle_std"]),
+        "xp": float(stats_angle["xp"]["window_angle_variation_std"]),
+        "yp": float(stats_angle["yp"]["window_angle_variation_std"]),
     }
+    nozzle_key = (
+        "nozzle_ripple_angle_variation_std"
+        if ripple_filters
+        else "nozzle_angle_variation_std"
+    )
+
     sigma_nozzle_attr = {
-        "xp": float(
-            stats_angle["xp"]["nozzle_angle_std"]
-            if not ripple_filters
-            else stats_angle["xp"]["nozzle_ripple_angle_std"]
-        ),
-        "yp": float(
-            stats_angle["yp"]["nozzle_angle_std"]
-            if not ripple_filters
-            else stats_angle["yp"]["nozzle_ripple_angle_std"]
-        ),
+        "xp": float(stats_angle["xp"][nozzle_key]),
+        "yp": float(stats_angle["yp"][nozzle_key]),
     }
 
     z_scatt = np.array([-1093.0], dtype=float)
@@ -12338,7 +8380,8 @@ def run_analysis(
             sigma0_angle=sigma_0_angle,
             z0=z0,
             z_scorings=positions_scoring_mm,
-            air_segments=distributed_segments[attr]
+            air_segments=distributed_segments[attr],
+            covariance0=covariance0_x if attr == "xp" else covariance0_y
         )
         (
             Zout_conv_final[attr],
@@ -12353,6 +8396,7 @@ def run_analysis(
             z_scorings=positions_scoring_mm,
             xbin=xbin,
             air_segments=distributed_segments[attr],
+            covariance0=covariance0_x if attr == "xp" else covariance0_y
         )
         (
             Z_ss[attr],
@@ -12367,6 +8411,7 @@ def run_analysis(
             z0=z0,
             z_scorings=positions_scoring_mm,
             air_segments = distributed_segments[attr],
+            covariance0=covariance0_by_plane[attr]
         )
 
     Zout_dq_prop, sigmas_space_dq_prop, sigmas_angle_dq_prop = {}, {}, {}
@@ -12381,6 +8426,8 @@ def run_analysis(
         sigma_space_measured = (
             sigma_meas_x_vacuum if attr == "xp" else sigma_meas_y_vacuum
         )
+        covariance_measured = covariance_measured_by_plane[attr]
+
         space_column = "x - coordinate" if attr == "xp" else "y - coordinate"
 
         (
@@ -12395,7 +8442,7 @@ def run_analysis(
             z_scorings=positions_scoring_mm,
             sigmas_angle_measured=sigma_angle_measured,
             sigmas_space_measured=sigma_space_measured,
-            covariance_measured=None,
+            covariance_measured=covariance_measured,
             air_segments=distributed_segments[attr]
         )
         (
@@ -12448,6 +8495,7 @@ def run_analysis(
             verbose=True,
         )
 
+
     import inspect
 
     print("\n" + "=" * 80)
@@ -12468,7 +8516,6 @@ def run_analysis(
 
     print("\n--- deconvolutionFinal_with_air ---")
     print(inspect.getsource(deconvolutionFinal_with_air))
-
 
     labels_surfaces = [
         f"{z0 / 10.0:.1f} cm",
@@ -12655,6 +8702,90 @@ def run_analysis(
         sigma_meas_theta_air,
     )
 
+def mean_energy_loss(df, column):
+    """
+    Arithmetic mean of finite values in df[column].
+
+    The result has the same physical units as the input column.
+    Assumes equal statistical weight for all rows.
+    """
+    if column not in df.columns:
+        raise KeyError(
+            f"Column {column!r} is missing."
+        )
+
+    values = pd.to_numeric(
+        df[column],
+        errors="coerce",
+    ).to_numpy(dtype=float)
+
+    finite_mask = np.isfinite(values)
+
+    if not np.any(finite_mask):
+        return float("nan")
+
+    return float(
+        np.mean(
+            values,
+            where=finite_mask,
+            dtype=np.float64,
+        )
+    )
+
+def mean_energy_loss_at_surface(
+    df_variations,
+    z_position,
+    column="delta_energy",
+):
+    """
+    Mean differential energy loss for one scoring surface.
+
+    z_position uses the same units as scoring_surface.
+    """
+    required_columns = ("scoring_surface", column)
+
+    missing_columns = [
+        name
+        for name in required_columns
+        if name not in df_variations.columns
+    ]
+
+    if missing_columns:
+        raise KeyError(
+            f"Missing columns: {missing_columns}."
+        )
+
+    scoring_values = pd.to_numeric(
+        df_variations["scoring_surface"],
+        errors="coerce",
+    ).to_numpy(dtype=float)
+
+    surface_mask = np.isclose(
+        scoring_values,
+        float(z_position),
+        rtol=0.0,
+        atol=1.0e-9,
+    )
+
+    if not np.any(surface_mask):
+        raise ValueError(
+            "No differential energy-loss data found at "
+            f"scoring_surface={z_position}."
+        )
+
+    # Select only the column needed, not the entire dataframe.
+    mean_loss = mean_energy_loss(
+        df_variations.loc[surface_mask, [column]],
+        column,
+    )
+
+    if not np.isfinite(mean_loss):
+        raise ValueError(
+            "No finite differential energy-loss values at "
+            f"scoring_surface={z_position}."
+        )
+
+    return mean_loss
 
 def calc_equivalent_x(
     angle_xp_mrad,
@@ -12673,93 +8804,375 @@ def calc_equivalent_x(
     gamma,
     n_iter=8,
     return_history=False,
-    landau_output_unit="mm" 
+    landau_output_unit="mm",
+    *,
+    mean_delta_energy,
+    rho_water=1.0,
+    density_effect_delta=0.0,
 ):
+    """
+    Equivalent water thickness from:
+        1. MCS in x_prime, y_prime and theta.
+        2. Landau most-probable energy loss.
+        3. Mean energy loss using Bethe-Bloch at fixed energy.
+
+    Units
+    -----
+    angle_*_mrad : mrad
+    pc : MeV, meaning momentum multiplied by c
+    beta, gamma : dimensionless, evaluated at the reference energy
+    z : projectile charge number
+    X0 : water radiation length, in the desired MCS length unit
+    delta_energy : Landau MPV energy loss, MeV per projectile
+    mean_delta_energy : mean energy loss, MeV per projectile
+    K : MeV cm^2 / g
+    Z_A_water : target Z/A in the convention used with K
+    rest_energy_electron : electron rest energy, MeV
+    I : water mean excitation energy, MeV
+    j : Landau constant
+    rho_water : g/cm^3
+    density_effect_delta : dimensionless density-effect correction
+
+    Returns
+    -------
+    By default:
+        (
+            equivalent_x_MCS_xp,
+            equivalent_x_MCS_yp,
+            equivalent_x_MCS_theta,
+            x_equivalent_landau,
+            x_equivalent_bethe,
+        )
+
+    The two energy-based thicknesses use landau_output_unit,
+    retained under its old name for compatibility.
+
+    Bethe-Bloch uses constant stopping power, not integration
+    through the energy loss.
+    """
     angle_xp_mrad = float(angle_xp_mrad)
     angle_yp_mrad = float(angle_yp_mrad)
     angle_theta_mrad = float(angle_theta_mrad)
+
     pc = float(pc)
     beta = float(beta)
+    gamma = float(gamma)
     z = float(z)
     X0 = float(X0)
+
     delta_energy = float(delta_energy)
+    mean_delta_energy = float(mean_delta_energy)
+
     K = float(K)
     Z_A_water = float(Z_A_water)
     rest_energy_electron = float(rest_energy_electron)
     I = float(I)
     j = float(j)
-    gamma = float(gamma)
 
+    rho_water = float(rho_water)
+    density_effect_delta = float(density_effect_delta)
 
-    theta_xp = angle_xp_mrad * 1e-3
-    theta_yp = angle_yp_mrad * 1e-3
-    theta = angle_theta_mrad * 1e-3
+    input_values = [
+        angle_xp_mrad,
+        angle_yp_mrad,
+        angle_theta_mrad,
+        pc,
+        beta,
+        gamma,
+        z,
+        X0,
+        delta_energy,
+        mean_delta_energy,
+        K,
+        Z_A_water,
+        rest_energy_electron,
+        I,
+        j,
+        rho_water,
+        density_effect_delta,
+    ]
 
+    if not np.all(np.isfinite(input_values)):
+        raise ValueError(
+            "All input parameters must be finite."
+        )
+
+    if not 0.0 < beta < 1.0 or gamma <= 1.0:
+        raise ValueError(
+            "Require 0 < beta < 1 and gamma > 1."
+        )
+
+    gamma_expected = 1.0 / np.sqrt(1.0 - beta**2)
+
+    if not np.isclose(
+        gamma,
+        gamma_expected,
+        rtol=1.0e-4,
+        atol=0.0,
+    ):
+        raise ValueError(
+            "beta and gamma must refer to the same energy."
+        )
+
+    if (
+        pc <= 0.0
+        or z == 0.0
+        or X0 <= 0.0
+        or K <= 0.0
+        or Z_A_water <= 0.0
+        or rest_energy_electron <= 0.0
+        or I <= 0.0
+        or rho_water <= 0.0
+        or density_effect_delta < 0.0
+    ):
+        raise ValueError(
+            "Invalid physical parameters: require positive "
+            "pc, X0, K, Z_A_water, electron rest energy, I "
+            "and rho_water; nonzero z; non-negative "
+            "density_effect_delta."
+        )
+
+    if delta_energy < 0.0 or mean_delta_energy < 0.0:
+        raise ValueError(
+            "Energy losses must be non-negative."
+        )
+
+    n_iter_int = int(n_iter)
+
+    if n_iter_int < 0 or n_iter_int != n_iter:
+        raise ValueError(
+            "n_iter must be a non-negative integer."
+        )
+
+    output_unit = str(landau_output_unit).strip().lower()
+
+    if output_unit not in ("mm", "cm"):
+        raise ValueError(
+            "landau_output_unit must be 'mm' or 'cm'."
+        )
+
+    energy_length_factor = (
+        10.0 if output_unit == "mm" else 1.0
+    )
+
+    # ------------------------------------------------------------
+    # MCS: same iterative model as the existing function.
+    # ------------------------------------------------------------
     def solve_equivalent_x_mcs(theta_rad):
-        if theta_rad < 0:
-            theta_rad = abs(theta_rad)
+        theta_rad = abs(float(theta_rad))
 
-        x_eq = ((theta_rad * beta * pc) / (13.6 * abs(z)))**2 * X0
+        if theta_rad == 0.0:
+            return 0.0, [0.0]
+
+        x_eq = (
+            (
+                theta_rad * beta * pc
+                / (13.6 * abs(z))
+            ) ** 2
+            * X0
+        )
+
         history = [x_eq]
 
-        for _ in range(int(n_iter)):
-            arg = max((x_eq * z**2) / (X0 * beta**2), 1e-30)
+        for _ in range(n_iter_int):
+            arg = max(
+                x_eq * z**2 / (X0 * beta**2),
+                1.0e-30,
+            )
+
             corr = 1.0 + 0.038 * np.log(arg)
 
-            if corr <= 1e-12:
-                corr = 1e-12
+            if corr <= 1.0e-12:
+                raise ValueError(
+                    "MCS logarithmic correction is non-positive "
+                    "or too small: check model validity."
+                )
 
-            x_eq = ((theta_rad * beta * pc) / (13.6 * abs(z) * corr))**2 * X0
+            x_eq = (
+                (
+                    theta_rad * beta * pc
+                    / (13.6 * abs(z) * corr)
+                ) ** 2
+                * X0
+            )
+
             history.append(x_eq)
 
         return x_eq, history
 
-    equivalent_x_MCS_xp, history_MCS_xp = solve_equivalent_x_mcs(theta_xp)
-    equivalent_x_MCS_yp, history_MCS_yp = solve_equivalent_x_mcs(theta_yp)
-    equivalent_x_MCS_theta, history_MCS_theta = solve_equivalent_x_mcs(theta)
-
-    csi = (K / 2.0) * Z_A_water * (z**2 / beta**2)
-
-    term_const = (
-        np.log((2.0 * rest_energy_electron * beta**2 * gamma**2) / I)
-        + j
-        - beta**2
+    equivalent_x_MCS_xp, history_MCS_xp = (
+        solve_equivalent_x_mcs(angle_xp_mrad * 1.0e-3)
     )
 
-    x_landau_cm = delta_energy / (csi * term_const)
-    history_Landau = [x_landau_cm]
+    equivalent_x_MCS_yp, history_MCS_yp = (
+        solve_equivalent_x_mcs(angle_yp_mrad * 1.0e-3)
+    )
 
-    for _ in range(int(n_iter)):
-        xi = csi * x_landau_cm
-        log_arg = max(xi / I, 1e-30)
+    equivalent_x_MCS_theta, history_MCS_theta = (
+        solve_equivalent_x_mcs(angle_theta_mrad * 1.0e-3)
+    )
 
-        denom = csi * (term_const + np.log(log_arg))
-        if denom <= 1e-30:
-            denom = 1e-30
+    # ------------------------------------------------------------
+    # Landau MPV inversion.
+    # csi is energy-loss scale per cm: MeV/cm.
+    # ------------------------------------------------------------
+    csi = (
+        (K / 2.0)
+        * Z_A_water
+        * rho_water
+        * z**2
+        / beta**2
+    )
 
-        x_landau_cm = delta_energy / denom
-        history_Landau.append(x_landau_cm)
+    term_const = (
+        np.log(
+            2.0
+            * rest_energy_electron
+            * beta**2
+            * gamma**2
+            / I
+        )
+        + j
+        - beta**2
+        - density_effect_delta
+    )
 
-    if landau_output_unit.lower() == "mm":
-        x_equivalent_landau = x_landau_cm * 10.0
-    elif landau_output_unit.lower() == "cm":
-        x_equivalent_landau = x_landau_cm
+    if delta_energy == 0.0:
+        x_landau_cm = 0.0
+        history_Landau = [0.0]
+
     else:
-        raise ValueError("landau_output_unit deve essere 'mm' oppure 'cm'")
+        if term_const <= 0.0:
+            raise ValueError(
+                "Non-positive initial Landau denominator."
+            )
+
+        x_landau_cm = delta_energy / (csi * term_const)
+        history_Landau = [x_landau_cm]
+
+        for _ in range(n_iter_int):
+            xi = csi * x_landau_cm
+
+            denom = csi * (
+                term_const + np.log(xi / I)
+            )
+
+            if not np.isfinite(denom) or denom <= 0.0:
+                raise ValueError(
+                    "Invalid Landau inversion denominator: "
+                    "check inputs and model validity."
+                )
+
+            x_landau_cm = delta_energy / denom
+            history_Landau.append(x_landau_cm)
+
+    # ------------------------------------------------------------
+    # Bethe-Bloch: fixed-energy mean stopping power.
+    # Projectile rest energy follows from pc = beta*gamma*M*c^2.
+    # ------------------------------------------------------------
+    projectile_rest_energy = pc / (beta * gamma)
+
+    mass_ratio = (
+        rest_energy_electron / projectile_rest_energy
+    )
+
+    t_max = (
+        2.0
+        * rest_energy_electron
+        * beta**2
+        * gamma**2
+        / (
+            1.0
+            + 2.0 * gamma * mass_ratio
+            + mass_ratio**2
+        )
+    )
+
+    bethe_log_argument = (
+        2.0
+        * rest_energy_electron
+        * beta**2
+        * gamma**2
+        * t_max
+        / I**2
+    )
+
+    bethe_bracket = (
+        0.5 * np.log(bethe_log_argument)
+        - beta**2
+        - density_effect_delta / 2.0
+    )
+
+    stopping_power_water = (
+        K
+        * Z_A_water
+        * rho_water
+        * z**2
+        / beta**2
+        * bethe_bracket
+    )
+
+    if (
+        not np.isfinite(stopping_power_water)
+        or stopping_power_water <= 0.0
+    ):
+        raise ValueError(
+            "Bethe-Bloch returned non-positive or non-finite "
+            "stopping power. Check units and validity range."
+        )
+
+    x_bethe_cm = (
+        mean_delta_energy / stopping_power_water
+    )
+
+    x_equivalent_landau = (
+        x_landau_cm * energy_length_factor
+    )
+
+    x_equivalent_bethe = (
+        x_bethe_cm * energy_length_factor
+    )
 
     if return_history:
         return {
             "equivalent_x_MCS_xp": equivalent_x_MCS_xp,
             "equivalent_x_MCS_yp": equivalent_x_MCS_yp,
             "equivalent_x_MCS_theta": equivalent_x_MCS_theta,
+
             "x_equivalent_landau": x_equivalent_landau,
+            "x_equivalent_bethe": x_equivalent_bethe,
+
             "history_MCS_xp": history_MCS_xp,
             "history_MCS_yp": history_MCS_yp,
+            "history_MCS_theta": history_MCS_theta,
             "history_Landau": history_Landau,
+
             "x_landau_cm": x_landau_cm,
+            "x_bethe_cm": x_bethe_cm,
+
+            "delta_energy_mpv_MeV": delta_energy,
+            "mean_delta_energy_MeV": mean_delta_energy,
+
+            "stopping_power_water_MeV_per_cm": (
+                stopping_power_water
+            ),
+
+            "projectile_rest_energy_MeV": (
+                projectile_rest_energy
+            ),
+
+            "T_max_MeV": t_max,
+            "energy_thickness_unit": output_unit,
+            "bethe_method": "constant_stopping_power",
         }
 
-    return equivalent_x_MCS_xp, equivalent_x_MCS_yp, equivalent_x_MCS_theta, x_equivalent_landau
+    return (
+        equivalent_x_MCS_xp,
+        equivalent_x_MCS_yp,
+        equivalent_x_MCS_theta,
+        x_equivalent_landau,
+        x_equivalent_bethe,
+    )
 
 
 def _build_air_segments(
@@ -12827,6 +9240,7 @@ def sumQuadProp_with_air(
     z0,
     z_scorings,
     air_segments=None,
+    covariance0 = 0.0,
 ):
 
     z_scatt = np.asarray(z_scatt, dtype=float)
@@ -12854,10 +9268,10 @@ def sumQuadProp_with_air(
     for i in range(1, len(Zout)):
         z_current = Zout[i]
 
+        L = (z_current - z0) * 1e-3
+
         # Source divergence propagated from z0 to z_current.
-        var_space = sigma0_space**2 + (
-            sigma0_angle * 1e-3 * (z_current - z0)
-        )**2
+        var_space = sigma0_space**2 + L**2*sigma0_angle**2 + 2.0 * L * covariance0
 
         var_angle = sigma0_angle**2
 
@@ -12900,113 +9314,284 @@ def ConvFinal_with_air(
     z_scorings,
     xbin,
     air_segments=None,
+    *,
+    covariance0,
 ):
+    """
+    Propagazione spaziale mediante convoluzione, con covarianza
+    iniziale posizione-angolo.
+
+    Unità:
+        z, x, sigma0_space: mm
+        sigma0_angle, sigma_scatt_angle: mrad
+        covariance0: mm*mrad
+
+    Ipotesi:
+        - distribuzione iniziale gaussiana;
+        - trasporto in drift;
+        - scattering additivo indipendente dal fascio iniziale;
+        - scatterer inclusi nel modello a partire da z0.
+
+    Restituisce:
+        Zout: z0 seguito dalle superfici di scoring;
+        sigmas_angle: sigma angolari alle superfici;
+        pdf_space: PDF spaziali centrate sulle griglie xbin.
+    """
     z_scatt = np.asarray(z_scatt, dtype=float)
     sigma_scatt_angle = np.asarray(
         sigma_scatt_angle,
         dtype=float,
     )
+    z_scorings = np.asarray(z_scorings, dtype=float)
     xbin = np.asarray(xbin, dtype=float)
 
-    if z_scatt.shape != sigma_scatt_angle.shape:
+    sigma0_space = float(sigma0_space)
+    sigma0_angle = float(sigma0_angle)
+    covariance0 = float(covariance0)
+    z0 = float(z0)
+
+    # Controllo degli array degli scatterer.
+    if (
+        z_scatt.ndim != 1
+        or sigma_scatt_angle.ndim != 1
+        or z_scatt.shape != sigma_scatt_angle.shape
+    ):
         raise ValueError(
-            "z_scatt and sigma_scatt_angle must have the same shape."
+            "z_scatt e sigma_scatt_angle devono essere "
+            "array monodimensionali della stessa forma."
         )
 
+    if (
+        not np.all(np.isfinite(z_scatt))
+        or not np.all(np.isfinite(sigma_scatt_angle))
+        or np.any(sigma_scatt_angle < 0.0)
+    ):
+        raise ValueError(
+            "Posizioni degli scatterer finite e sigma "
+            "angolari finite e non negative richieste."
+        )
+
+    # Controllo delle condizioni iniziali.
+    if not np.all(np.isfinite([
+        sigma0_space,
+        sigma0_angle,
+        covariance0,
+        z0,
+    ])):
+        raise ValueError(
+            "Le condizioni iniziali devono essere finite."
+        )
+
+    if sigma0_space < 0.0 or sigma0_angle < 0.0:
+        raise ValueError(
+            "Le sigma iniziali devono essere non negative."
+        )
+
+    # Una matrice di covarianza fisica deve soddisfare:
+    # |Cov(x, x')| <= sigma_x * sigma_x'.
+    covariance_limit = sigma0_space * sigma0_angle
+
+    if abs(covariance0) > covariance_limit:
+        raise ValueError(
+            "Covarianza iniziale non fisica: "
+            "|covariance0| deve essere <= "
+            "sigma0_space * sigma0_angle."
+        )
+
+    # Controllo delle superfici di scoring.
+    if (
+        z_scorings.ndim != 1
+        or not np.all(np.isfinite(z_scorings))
+        or np.any(z_scorings <= z0)
+        or np.any(np.diff(z_scorings) <= 0.0)
+    ):
+        raise ValueError(
+            "z_scorings deve essere un array finito, "
+            "strettamente crescente e a valle di z0."
+        )
+
+    # Controllo della griglia spaziale.
+    if (
+        xbin.ndim != 1
+        or xbin.size < 3
+        or not np.all(np.isfinite(xbin))
+        or np.any(np.diff(xbin) <= 0.0)
+    ):
+        raise ValueError(
+            "xbin deve essere una griglia finita "
+            "e strettamente crescente."
+        )
+
+    if not np.allclose(
+        np.diff(xbin),
+        xbin[1] - xbin[0],
+        rtol=1.0e-8,
+        atol=1.0e-12,
+    ):
+        raise ValueError(
+            "xbin deve essere uniformemente spaziata."
+        )
+
+    if not (xbin[0] <= 0.0 <= xbin[-1]):
+        raise ValueError(
+            "xbin deve comprendere lo zero."
+        )
+
+    if np.any(z_scatt < z0):
+        raise ValueError(
+            "Sono presenti scatterer a monte di z0. "
+            "I loro effetti devono essere già inclusi "
+            "nella matrice iniziale."
+        )
+
+    # Materializza e controlla gli eventuali segmenti distribuiti.
+    if air_segments is not None:
+        air_segments = [
+            tuple(float(value) for value in segment)
+            for segment in air_segments
+        ]
+
+        for z_start, z_end, sigma_per_sqrt_mm in air_segments:
+            if (
+                not np.all(np.isfinite([
+                    z_start,
+                    z_end,
+                    sigma_per_sqrt_mm,
+                ]))
+                or z_end <= z_start
+                or sigma_per_sqrt_mm < 0.0
+            ):
+                raise ValueError(
+                    "Segmento distribuito non valido."
+                )
+
+            if z_start < z0:
+                raise ValueError(
+                    "Un segmento distribuito inizia a monte "
+                    "di z0. Includere soltanto il tratto "
+                    "a partire da z0."
+                )
+
     Zout = np.concatenate((
-        [float(z0)],
-        np.asarray(z_scorings, dtype=float),
+        [z0],
+        z_scorings,
     ))
 
     sigmas_angle = np.zeros(len(Zout), dtype=float)
-    sigmas_angle[0] = float(sigma0_angle)
+    sigmas_angle[0] = sigma0_angle
 
     pdf_space = np.zeros(
         (len(Zout), len(xbin)),
         dtype=float,
     )
 
-    pdf_space_0 = _gaussian_pdf_or_delta(
+    pdf_space[0] = _gaussian_pdf_or_delta(
         xbin,
         sigma0_space,
     )
-    pdf_space[0] = pdf_space_0
 
     for i in range(1, len(Zout)):
         z_current = Zout[i]
 
+        # Drift della sorgente, inclusa la covarianza iniziale.
+        L = (z_current - z0) * 1.0e-3
+
+        var_space_drift = (
+            sigma0_space**2
+            + 2.0 * L * covariance0
+            + L**2 * sigma0_angle**2
+        )
+
+        # Tolleranza soltanto per cancellazioni numeriche.
+        variance_scale = max(
+            sigma0_space**2,
+            abs(2.0 * L * covariance0),
+            L**2 * sigma0_angle**2,
+            np.finfo(float).tiny,
+        )
+
+        if var_space_drift < -1.0e-12 * variance_scale:
+            raise ValueError(
+                "Varianza spaziale di drift negativa "
+                f"a z={z_current}: {var_space_drift}."
+            )
+
+        var_space_drift = max(var_space_drift, 0.0)
+
+        pdf_space_drift = _gaussian_pdf_or_delta(
+            xbin,
+            np.sqrt(var_space_drift),
+        )
+
+        # Il kernel contiene soltanto lo scattering.
+        var_space_scatt = 0.0
         var_angle = sigma0_angle**2
 
-        source_distance_mm = (
-            z_current
-            - z0
-        )
-
-        varspace_from_source_divergence = (
-            sigma0_angle
-            * 1.0e-3
-            * source_distance_mm
-        ) ** 2
-
-        var_space_scatt = (
-            varspace_from_source_divergence
-        )
-
-        # Point-like window/nozzle contributions.
+        # Scatterer puntiformi.
         for z_kick, sigma_kick in zip(
             z_scatt,
             sigma_scatt_angle,
         ):
             distance = z_current - z_kick
 
-            if distance <= 0.0:
+            if distance < 0.0:
                 continue
 
+            # Convenzione: scoring immediatamente dopo
+            # un eventuale kick posto esattamente sul piano.
             var_angle += sigma_kick**2
 
-            sigma_x_kick = (
+            var_space_scatt += (
                 sigma_kick
-                * 1e-3
+                * 1.0e-3
                 * distance
+            )**2
+
+        # Contributi distribuiti: aria ed eventuali altri segmenti.
+        var_x_air, _, var_theta_air = (
+            _distributed_scattering_moments(
+                z_current,
+                air_segments,
             )
-            var_space_scatt += sigma_x_kick**2
-
-        # Exact distributed-air contributions.
-        var_x_air, _, var_theta_air = _distributed_scattering_moments(
-            z_current,
-            air_segments,
         )
 
-        var_angle += var_theta_air
+        if (
+            not np.all(np.isfinite([
+                var_x_air,
+                var_theta_air,
+            ]))
+            or var_x_air < 0.0
+            or var_theta_air < 0.0
+        ):
+            raise ValueError(
+                "Momenti dello scattering distribuito "
+                f"non validi a z={z_current}."
+            )
+
         var_space_scatt += var_x_air
+        var_angle += var_theta_air
 
-        sigmas_angle[i] = np.sqrt(max(var_angle, 0.0))
+        sigmas_angle[i] = np.sqrt(var_angle)
 
-        sigma_space_scatt = np.sqrt(
-            max(var_space_scatt, 0.0)
-        )
+        if var_space_scatt == 0.0:
+            # Nessun allargamento spaziale da convolvere.
+            pdf_space[i] = pdf_space_drift
+        else:
+            pdf_scatt_kernel = _gaussian_pdf_or_delta(
+                xbin,
+                np.sqrt(var_space_scatt),
+            )
 
-        pdf_scatt_kernel = _gaussian_pdf_or_delta(
-            xbin,
-            sigma_space_scatt,
-        )
-
-        #pdf_space[i] = normalize_pdf(
-        #    np.convolve(
-        #        pdf_space[i-1],
-        #        pdf_scatt_kernel,
-        #        mode="same",
-        #    ),
-        #    xbin,
-        #)
-        pdf_space[i] = reconvolve_same_grid(
-            pdf_space_0,
-            pdf_scatt_kernel,
-            xbin,
-        )
+            pdf_space[i] = normalize_pdf(
+                reconvolve_same_grid(
+                    pdf_space_drift,
+                    pdf_scatt_kernel,
+                    xbin,
+                ),
+                xbin,
+            )
 
     return Zout, sigmas_angle, pdf_space
-
 
 def state_space_propagation_with_air(
     z_scatt,
@@ -13016,7 +9601,20 @@ def state_space_propagation_with_air(
     z0,
     z_scorings,
     air_segments=None,
+    covariance0=None,
 ):
+    if covariance0 is None:
+        raise ValueError(
+            "Manca la covarianza iniziale a z0."
+        )
+
+    covariance0 = float(covariance0)
+
+    if not np.isfinite(covariance0):
+        raise ValueError(
+            "La covarianza iniziale deve essere finita."
+        )
+
     z_scatt = np.asarray(z_scatt, dtype=float)
     sigma_scatt_angle = np.asarray(
         sigma_scatt_angle,
@@ -13025,7 +9623,8 @@ def state_space_propagation_with_air(
 
     if z_scatt.shape != sigma_scatt_angle.shape:
         raise ValueError(
-            "z_scatt and sigma_scatt_angle must have the same shape."
+            "z_scatt and sigma_scatt_angle "
+            "must have the same shape."
         )
 
     Zout = np.concatenate((
@@ -13039,13 +9638,14 @@ def state_space_propagation_with_air(
     covariance = np.zeros(nZ, dtype=float)
 
     P0 = np.array([
-        [sigma0_space**2, 0.0],
-        [0.0, sigma0_angle**2],
+        [sigma0_space**2, covariance0],
+        [covariance0, sigma0_angle**2],
     ], dtype=float)
 
     sigmas_space[0] = float(sigma0_space)
     sigmas_angle[0] = float(sigma0_angle)
-    covariance[0] = 0.0
+    covariance[0] = covariance0
+
 
     for i in range(1, nZ):
         z_current = Zout[i]
@@ -13423,6 +10023,7 @@ def _distributed_scattering_moments(
 
     return var_x, cov_x_theta, var_theta
 
+
 def _subdivide_air_segments(air_segments, dz=None):
 
     if dz is None:
@@ -13475,6 +10076,7 @@ def _run_air_methods(
     z0,
     positions_scoring_mm,
     deconvolution_verbose=False,
+    covariance0=None,
 ):
 
     result = {}
@@ -13491,6 +10093,7 @@ def _run_air_methods(
         z0=z0,
         z_scorings=positions_scoring_mm,
         air_segments=air_segments,
+        covariance0=covariance0
     )
 
     (
@@ -13506,6 +10109,7 @@ def _run_air_methods(
         z_scorings=positions_scoring_mm,
         xbin=xbin,
         air_segments=air_segments,
+        covariance0=covariance0
     )
 
     (
@@ -13521,6 +10125,7 @@ def _run_air_methods(
         z0=z0,
         z_scorings=positions_scoring_mm,
         air_segments=air_segments,
+        covariance0=covariance0,
     )
 
     (
@@ -13656,7 +10261,6 @@ def _run_air_methods(
 
     return result
 
-
 def _build_measured_space_pdfs(xbin, sigma_meas_space):
 
 
@@ -13710,21 +10314,25 @@ def run_one_distributed_air_model(
     z_nozzle_end,
     ripple_filters=False,
     deconvolution_verbose=False,
+    covariance0_x=None,
+    covariance0_y=None,
 ):
     results = {}
 
     for attr in ("xp", "yp"):
 
         sigma_window = float(
-            stats_angle[attr]["window_angle_std"]
+            stats_angle[attr]["window_angle_variation_std"]
+        )
+
+        nozzle_key = (
+            "nozzle_ripple_angle_variation_std"
+            if ripple_filters
+            else "nozzle_angle_variation_std"
         )
 
         sigma_nozzle = float(
-            stats_angle[attr]["nozzle_angle_std"]
-            if not ripple_filters
-            else stats_angle[attr][
-                "nozzle_ripple_angle_std"
-            ]
+            stats_angle[attr][nozzle_key]
         )
 
         sigma_meas_angle = (
@@ -13766,6 +10374,17 @@ def run_one_distributed_air_model(
             distributed_segments,
             dz=air_dz,
         )
+        covariance0 = (
+            covariance0_x
+            if attr == "xp"
+            else covariance0_y
+        )
+
+        if covariance0 is None:
+            raise ValueError(
+                f"run_one_distributed_air_model: "
+                f"manca la covarianza iniziale per {attr}."
+            )
 
         results[attr] = _run_air_methods(
             z_kicks=z_kicks,
@@ -13779,6 +10398,7 @@ def run_one_distributed_air_model(
             z0=z0,
             positions_scoring_mm=z_scoring,
             deconvolution_verbose=deconvolution_verbose,
+            covariance0=covariance0 
         )
 
     return results
@@ -13799,6 +10419,8 @@ def run_analysis_with_air_unique_block(
     positions_scoring_mm,
     results_original_air,
     ripple_filters=False,
+    covariance0_x=None,
+    covariance0_y=None
 ):
 
     del xpbin, results_original_air
@@ -13833,7 +10455,9 @@ def run_analysis_with_air_unique_block(
         z_nozzle_start=z_nozzle_start,
         z_nozzle_end=z_nozzle_end,
         ripple_filters=ripple_filters,
-        deconvolution_verbose=False,
+        deconvolution_verbose=True,
+        covariance0_x=covariance0_x,
+        covariance0_y=covariance0_y
     )
 
     Zout = results["xp"]["Zout_prop"]
@@ -13841,12 +10465,12 @@ def run_analysis_with_air_unique_block(
     sigma_scatter_attr_withair = {}
 
     for attr in ("xp", "yp"):
-        sigma_window = float(stats_angle[attr]["window_angle_std"])
+        sigma_window = float(stats_angle[attr]["window_angle_variation_std"])
 
         sigma_nozzle = float(
-            stats_angle[attr]["nozzle_angle_std"]
+            stats_angle[attr]["nozzle_angle_variation_std"]
             if not ripple_filters
-            else stats_angle[attr]["nozzle_ripple_angle_std"]
+            else stats_angle[attr]["nozzle_ripple_angle_variation_std"]
         )
 
         _, sigma_kicks = build_thin_scatterers(
@@ -13871,6 +10495,7 @@ def run_analysis_with_air_unique_block(
         direct_methods_comparison_withair.columns
     )
 
+
     inverse_methods_comparison_withair = pd.DataFrame({
         ("IN SPACE", "", "Scoring surfaces"): Zout,
         ("IN SPACE", "FROM DIFFERENCE OF SQUARES", "STD in x (mm)"): results["xp"]["space_dq"],
@@ -13883,6 +10508,19 @@ def run_analysis_with_air_unique_block(
     inverse_methods_comparison_withair.columns = pd.MultiIndex.from_tuples(
         inverse_methods_comparison_withair.columns
     )
+   
+    print("\n" + "=" * 80)
+    print("CHECK: VALUES SENT TO THE AIR INVERSE PLOT")
+    print("=" * 80)
+
+    print("Zout deconvolution x [mm]:")
+    print(results["xp"]["Zout_deconv"])
+
+    print("sigma from deconvolved PDFs, x [mm]:")
+    print(results["xp"]["space_deconv"])
+
+    print("sigma from deconvolved PDFs, y [mm]:")
+    print(results["yp"]["space_deconv"])
 
     direct_methods_comparison_withair_angle = pd.DataFrame({
         ("IN ANGLE", "", "Scoring surfaces"): Zout,
@@ -13959,6 +10597,8 @@ def run_analysis_with_air_small_components(
     direct_methods_comparison_withair,
     direct_methods_comparison_withair_angle,
     ripple_filters=False,
+    covariance0_x=None,
+    covariance0_y=None
 ):
 
     del sigma_scatter_attr_withair
@@ -13996,6 +10636,8 @@ def run_analysis_with_air_small_components(
         z_nozzle_end=z_nozzle_end,
         ripple_filters=ripple_filters,
         deconvolution_verbose=False,
+        covariance0_x=covariance0_x,
+        covariance0_y=covariance0_y
     )
 
     ten_mm = run_one_distributed_air_model(
@@ -14015,6 +10657,8 @@ def run_analysis_with_air_small_components(
         z_nozzle_end=z_nozzle_end,
         ripple_filters=ripple_filters,
         deconvolution_verbose=False,
+        covariance0_x=covariance0_x,
+        covariance0_y=covariance0_y
     )
 
     Zout = one_mm["xp"]["Zout_prop"]
@@ -14112,7 +10756,6 @@ def run_analysis_with_air_small_components(
     )
 
 import matplotlib.colors as mcolors
-
 
 def plot_comparison_of_dataframes(
     direct_df,
@@ -14710,163 +11353,6 @@ def twiss_ellipse_points(alpha, beta, epsilon, x0=0.0, xp0=0.0, npts=600):
     xp = -np.sqrt(epsilon / beta) * (alpha * np.cos(t) + np.sin(t))
 
     return x + x0, xp + xp0
-def get_twiss_level_result(surface_twiss_results, target_label="60.65% peak density"):
-    for item in surface_twiss_results:
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("label", "")).strip() == str(target_label).strip():
-            return item
-
-    available = [
-        item.get("label", None)
-        for item in surface_twiss_results
-        if isinstance(item, dict)
-    ]
-    raise ValueError(
-        f"Label {target_label!r} not found. Available: {available}"
-    )
-
-
-def plot_twiss_ellipse_comparison(
-    stats_surface,
-    twiss_surface_results_xxp,
-    twiss_surface_results_yyp,
-    target_label="60.65% peak density",
-    center_stat_ellipse_on_fit=True,
-    figsize=(15, 7.5),
-    show=False
-):
-    fig, axes = plt.subplots(1, 2, figsize=figsize)
-
-    plot_configs = [
-        {
-            "ax": axes[0],
-            "twiss_surface_results": twiss_surface_results_xxp,
-            "plane": "x_xp",
-            "alpha_key": "alpha_x",
-            "beta_key": "beta_x",
-            "gamma_key": "gamma_x",
-            "epsilon_key": "emittance_x",
-            "xlabel": "x [mm]",
-            "ylabel": "x' [mrad]",
-            "title_plane": "x-x'"
-        },
-        {
-            "ax": axes[1],
-            "twiss_surface_results": twiss_surface_results_yyp,
-            "plane": "y_yp",
-            "alpha_key": "alpha_y",
-            "beta_key": "beta_y",
-            "gamma_key": "gamma_y",
-            "epsilon_key": "emittance_y",
-            "xlabel": "y [mm]",
-            "ylabel": "y' [mrad]",
-            "title_plane": "y-y'"
-        }
-    ]
-
-    zpos = stats_surface.get("z_position", stats_surface.get("zposition", "N/A"))
-
-    for cfg in plot_configs:
-        ax = cfg["ax"]
-        twiss_surface_results = cfg["twiss_surface_results"]
-
-        level_res = get_twiss_level_result(
-            twiss_surface_results,
-            target_label=target_label
-        )
-
-        x_fit_ellipse = np.asarray(level_res["x_fit_ellipse"], dtype=float)
-        y_fit_ellipse = np.asarray(level_res["y_fit_ellipse"], dtype=float)
-
-        x0_fit = float(level_res.get("x0", 0.0))
-        y0_fit = float(level_res.get("y0", level_res.get("xp0", 0.0)))
-
-        alpha_stat = float(stats_surface[cfg["alpha_key"]])
-        beta_stat = float(stats_surface[cfg["beta_key"]])
-        gamma_stat = float(stats_surface[cfg["gamma_key"]])
-        epsilon_stat = float(stats_surface[cfg["epsilon_key"]])
-
-        if center_stat_ellipse_on_fit:
-            x0_stat = x0_fit
-            y0_stat = y0_fit
-        else:
-            x0_stat = 0.0
-            y0_stat = 0.0
-
-        x_stat_ellipse, y_stat_ellipse = twiss_ellipse_points(
-            alpha=alpha_stat,
-            beta=beta_stat,
-            epsilon=epsilon_stat,
-            x0=x0_stat,
-            xp0=y0_stat,
-            npts=600
-        )
-
-        all_labels = []
-        for item in twiss_surface_results:
-            if not isinstance(item, dict):
-                continue
-            if "x_contour" not in item:
-                continue
-
-            x_cont = np.asarray(item["x_contour"], dtype=float)
-            y_cont = np.asarray(item.get("y_contour", item.get("xp_contour")), dtype=float)
-            this_label = str(item.get("label", "unknown"))
-
-            is_target = (this_label.strip() == str(target_label).strip())
-
-            ax.scatter(
-                x_cont,
-                y_cont,
-                s=18 if is_target else 12,
-                c="black",
-                alpha=0.95 if is_target else 0.55,
-                linewidths=0,
-                label=f"Contour from 3D plot at {this_label}" if this_label not in all_labels else None,
-                zorder=3 if is_target else 2
-            )
-            all_labels.append(this_label)
-
-        ax.plot(
-            x_fit_ellipse,
-            y_fit_ellipse,
-            color="red",
-            lw=1.6,
-            ls="-",
-            alpha=1.0,
-            label=f"Ellipse from fit ({target_label})",
-            zorder=4
-        )
-
-        ax.plot(
-            x_stat_ellipse,
-            y_stat_ellipse,
-            color="tab:blue",
-            lw=1.75,
-            ls="--",
-            alpha=0.5,
-            label="Ellipse from covariance matrix",
-            zorder=1
-        )
-
-        ax.set_title(f"{cfg['title_plane']} | z = {zpos} cm")
-        ax.set_xlabel(cfg["xlabel"])
-        ax.set_ylabel(cfg["ylabel"])
-        ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=8)
-        ax.set_aspect("equal", adjustable="box")
-
-        ax.set_xlim(-20, 20)
-        ax.set_ylim(-10, 10)
-
-    fig.tight_layout()
-
-    if show:
-        plt.show()
-
-    return fig
-
 
 def make_global_analysis_grid(
     dataframes,
@@ -15108,9 +11594,6 @@ def run_whole(file_vacuum, file_air, constant_parameters):
     8. Scatterer comparison tables and method-comparison figures.
     """
 
-    # ============================================================
-    # CONSTANTS
-    # ============================================================
 
     configure_histogram_binning(
         constant_parameters
@@ -15128,6 +11611,11 @@ def run_whole(file_vacuum, file_air, constant_parameters):
                 "nRows deve essere un intero positivo oppure None."
             )
     
+
+    # ============================================================
+    # CONSTANTS
+    # ============================================================
+
     ripple_filters = bool(
         constant_parameters["ripple_filters"]
     )
@@ -15221,6 +11709,16 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         "ellipse_peak_fraction",
         0.1,
     )
+    
+    angle_percentile_min = constant_parameters.get(
+        "angle_percentile_min",
+        1.0,
+    )
+
+    angle_percentile_max = constant_parameters.get(
+        "angle_percentile_max",
+        99.0,
+    )
 
     save_plots = bool(
         constant_parameters.get(
@@ -15230,21 +11728,21 @@ def run_whole(file_vacuum, file_air, constant_parameters):
     )
 
     case_output_dir_value = constant_parameters.get(
-        "case_output_dir",
+        "case_output_dir",)
+    
+    covariance0_x = float(
+        constant_parameters["covariance0_x"]
     )
 
     case_output_dir = (
         Path(case_output_dir_value)
         if case_output_dir_value
-        else None
+        else None)
+    
+
+    covariance0_y = float(
+        constant_parameters["covariance0_y"]
     )
-    print("\n" + "=" * 72)
-    print("PLOT-SAVING DEBUG INSIDE run_whole")
-    print("=" * 72)
-    print("save_plots:", save_plots)
-    print("case_output_dir_value:", case_output_dir_value)
-    print("case_output_dir:", case_output_dir)
-    print("=" * 72 + "\n")
 
     # ============================================================
     # INPUT VALIDATION
@@ -15307,7 +11805,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         positions_scoring,
         tolerance,
         column_names,
-        nRows=nRows,
+        nRows= nRows
     )
 
     setup_air = setup_dataset(
@@ -15317,7 +11815,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         positions_scoring,
         tolerance,
         column_names,
-        nRows=nRows,
+        nRows = nRows
     )
 
     if setup_vacuum is None:
@@ -15383,6 +11881,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         stored_surface_plots_vacuum,
         stored_distribution_plots_vacuum,
         surface_data_masked_variations_vacuum,
+        surface_data_filtered_variations_vacuum
     ) = analyze_dataset(
         df_original_vacuum,
         df_filtered_vacuum,
@@ -15394,6 +11893,8 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         theta_percentile_min=theta_percentile_min,
         theta_percentile_max=theta_percentile_max,
         ellipse_peak_fraction=ellipse_peak_fraction,
+        angle_percentile_min=angle_percentile_min,
+        angle_percentile_max=angle_percentile_max,
     )
 
     # ============================================================
@@ -15412,6 +11913,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         stored_surface_plots_air,
         stored_distribution_plots_air,
         surface_data_masked_variations_air,
+        surface_data_filtered_variations_air
     ) = analyze_dataset(
         df_original_air,
         df_filtered_air,
@@ -15422,8 +11924,11 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         cleaning_cut_mode=cleaning_cut_mode,
         theta_percentile_min=theta_percentile_min,
         theta_percentile_max=theta_percentile_max,
-        ellipse_peak_fraction=ellipse_peak_fraction
+        ellipse_peak_fraction=ellipse_peak_fraction,
+        angle_percentile_min=angle_percentile_min,
+        angle_percentile_max=angle_percentile_max,
     )
+
 
     if save_plots and case_output_dir is not None:
         surface_plot_dir = (
@@ -15469,7 +11974,6 @@ def run_whole(file_vacuum, file_air, constant_parameters):
     # computes beam_parameters on every selected subset.
     # ============================================================
 
-
     analysis_dataframes = [
         df_original_vacuum,
         df_original_air,
@@ -15494,31 +11998,6 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         xbin,
         maximum_step=40.0 / 2047.0,
     )
-
-    dx_previous = float(
-        np.mean(np.diff(xbin))
-    )
-
-    half_width = float(
-        np.max(np.abs(xbin))
-    )
-
-    n_half = int(
-        np.ceil(half_width / dx_previous)
-    )
-
-    dx_centered = half_width / n_half
-
-    xbin = (
-        np.arange(-n_half, n_half + 1, dtype=float)
-        * dx_centered
-    )
-
-    print("\n[WIENER GRID]")
-    print(f"Range: [{xbin[0]:.8f}, {xbin[-1]:.8f}] mm")
-    print(f"N punti: {xbin.size}")
-    print(f"Passo: {dx_centered:.10f} mm")
-    print(f"Coordinata centrale: {xbin[n_half]:.10f} mm")
 
     xpbin = make_global_analysis_grid(
         analysis_dataframes,
@@ -15576,20 +12055,13 @@ def run_whole(file_vacuum, file_air, constant_parameters):
             lambd=1.0e-10,
             make_plot=False,
         )
-    lambda_values = (
-        1e-8,
-        1e-10,
-        1e-12,
-        1e-14,
-        1e-16,
-        1e-18,
-    )
+
     for grid_name, test_grid in (
         ("Originale", xbin),
         ("Centrata", xbin_centered_test),
     ):
         for kernel_sigma in (7.794, 16.301):
-            for lambda_test in lambda_values:
+            for lambda_test in (1.0e-10, 0.1):
 
                 pdf_true = normalize_pdf(
                     np.exp(-0.5 * (test_grid / 6.30) ** 2),
@@ -15643,12 +12115,6 @@ def run_whole(file_vacuum, file_air, constant_parameters):
                     method="fit",
                     fit_window=None,
                 )
-                sigma_recovered_moment = measure_sigma(
-                    test_grid,
-                    pdf_recovered,
-                    method="moment",
-                    fit_window=None,
-                )
 
                 sigma_reconvolved = measure_sigma(
                     test_grid,
@@ -15673,8 +12139,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
                     "Lambda": lambda_test,
                     "Momento raw [mm2]": raw_second_moment,
                     "Massa negativa raw": raw_info["negative_mass"],
-                    "Sigma fit [mm]": sigma_recovered,
-                    "Sigma momento [mm]": sigma_recovered_moment,
+                    "Sigma recuperata [mm]": sigma_recovered,
                     "Sigma riconvoluta [mm]": sigma_reconvolved,
                     "Errore forward": forward_error,
                     "Errore sigma [%]": 100.0 * sigma_relative_error,
@@ -15810,6 +12275,9 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         z_nozzle_start,
         z_nozzle_end,
         ripple_filters=ripple_filters,
+        covariance0_x=covariance0_x,
+        covariance0_y=covariance0_y,
+   
     )
 
     # ============================================================
@@ -15937,16 +12405,17 @@ def run_whole(file_vacuum, file_air, constant_parameters):
     # ============================================================
 
     sigma_air_permm_xp = float(
-        stats_angle["xp"]["air_1000"]
+        stats_angle["xp"]["air_1000_delta"]
     ) / np.sqrt(1000.0)
 
     sigma_air_permm_yp = float(
-        stats_angle["yp"]["air_1000"]
+        stats_angle["yp"]["air_1000_delta"]
     ) / np.sqrt(1000.0)
 
     # ============================================================
     # AIR ANALYSIS: UNIQUE CONTINUOUS BLOCK
     # ============================================================
+
 
     (
         direct_methods_comparison_withair,
@@ -15969,6 +12438,8 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         positions_scoring_mm,
         results_masked_air,
         ripple_filters=ripple_filters,
+        covariance0_x=covariance0_x,
+        covariance0_y=covariance0_y
     )
 
     # ============================================================
@@ -15998,6 +12469,8 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         direct_methods_comparison_withair,
         direct_methods_comparison_withair_angle,
         ripple_filters=ripple_filters,
+        covariance0_x=covariance0_x,
+        covariance0_y=covariance0_y
     )
 
     # ============================================================
@@ -16027,6 +12500,48 @@ def run_whole(file_vacuum, file_air, constant_parameters):
     # ============================================================
     # EQUIVALENT THICKNESS: AIR
     # ============================================================
+
+
+    if len(positions_scoring) < 4:
+        raise ValueError(
+            "At least four scoring surfaces are required."
+        )
+
+    mean_energy_window = mean_energy_loss_at_surface(
+        surface_data_filtered_variations_vacuum,
+        positions_scoring[0],
+    )
+
+    mean_energy_nozzle = mean_energy_loss_at_surface(
+        surface_data_filtered_variations_vacuum,
+        positions_scoring[1],
+    )
+
+    mean_energy_air_60cm = mean_energy_loss_at_surface(
+        surface_data_filtered_variations_air,
+        positions_scoring[2],
+    )
+
+    mean_energy_air_100cm = mean_energy_loss_at_surface(
+        surface_data_filtered_variations_air,
+        positions_scoring[3],
+    )
+
+    print("\n========== MEAN ENERGY LOSSES ==========")
+    print(
+        f"Vacuum window: {mean_energy_window:.6g} MeV"
+    )
+    print(
+        f"Nozzle / nozzle + RF: "
+        f"{mean_energy_nozzle:.6g} MeV"
+    )
+    print(
+        f"60 cm air: {mean_energy_air_60cm:.6g} MeV"
+    )
+    print(
+        f"100 cm air: {mean_energy_air_100cm:.6g} MeV"
+    )
+    print("========================================\n")
 
     air_delta_xp = dataframe_std[
         "STD(delta xp) Air"
@@ -16081,12 +12596,14 @@ def run_whole(file_vacuum, file_air, constant_parameters):
     delta_energy_air_60cm = float(
         MPV_energy_air[2]
     )
+    
 
     (
         equivalent_x_MCS_air_100cm_xp,
         equivalent_x_MCS_air_100cm_yp,
         equivalent_x_MCS_air_100cm_theta,
         x_equivalent_landau_air_100cm,
+        x_equivalent_bethe_air_100cm
     ) = calc_equivalent_x(
         delta_xp_air_100cm,
         delta_yp_air_100cm,
@@ -16102,6 +12619,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         I,
         j,
         gamma,
+        mean_delta_energy=mean_energy_air_100cm
     )
 
     (
@@ -16109,6 +12627,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         equivalent_x_MCS_air_60cm_yp,
         equivalent_x_MCS_air_60cm_theta,
         x_equivalent_landau_air_60cm,
+        x_equivalent_bethe_air_60cm
     ) = calc_equivalent_x(
         delta_xp_air_60cm,
         delta_yp_air_60cm,
@@ -16124,6 +12643,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         I,
         j,
         gamma,
+        mean_delta_energy=mean_energy_air_60cm
     )
 
     # ============================================================
@@ -16212,6 +12732,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         equivalent_x_MCS_window_yp,
         equivalent_x_MCS_window_theta,
         x_equivalent_landau_window,
+        x_equivalent_bethe_window
     ) = calc_equivalent_x(
         window_angle_std_xp,
         window_angle_std_yp,
@@ -16227,6 +12748,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         I,
         j,
         gamma,
+        mean_delta_energy=mean_energy_window
     )
 
     (
@@ -16234,6 +12756,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         equivalent_x_MCS_nozzle_yp,
         equivalent_x_MCS_nozzle_theta,
         x_equivalent_landau_nozzle,
+        x_equivalent_bethe_nozzle
     ) = calc_equivalent_x(
         nozzle_angle_std_xp,
         nozzle_angle_std_yp,
@@ -16249,6 +12772,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         I,
         j,
         gamma,
+        mean_delta_energy=mean_energy_nozzle
     )
 
     # ============================================================
@@ -16319,6 +12843,13 @@ def run_whole(file_vacuum, file_air, constant_parameters):
                 x_equivalent_landau_air_100cm,
                 x_equivalent_landau_air_60cm,
             ],
+
+            "Equivalent x (Bethe) in energy [mm]": [
+                x_equivalent_bethe_window,
+                x_equivalent_bethe_nozzle,
+                x_equivalent_bethe_air_100cm,
+                x_equivalent_bethe_air_60cm,
+            ],
         }
     )
 
@@ -16336,7 +12867,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
     # RETURN RESULTS FOR STREAMLIT
     # ============================================================
 
-    result = {
+    result =  {
         "results_original_vacuum": (
             results_original_vacuum
         ),
@@ -16625,6 +13156,8 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         },
     }
 
+    
+
     if save_plots and case_output_dir is not None:
         case_output_dir = Path(
             case_output_dir
@@ -16708,7 +13241,6 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         # Matplotlib figures created during the analysis.
         plt.close("all")
     return result
-
 
 # CODICI PER ANALISI TUTTE ENERGIE
 
@@ -19937,6 +16469,3 @@ def run_whole_all_energiee(
         "cases_table": cases_table,
         "errors": errors_table,
     }
-
-
-

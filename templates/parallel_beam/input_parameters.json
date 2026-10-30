@@ -23,6 +23,8 @@
   "FWHM_0": 15.0,
   "sigma_0_angle": 0.0,
   "sigma_0_theta": 0.0,
+  "covariance0_x":0.0,
+  "covariance0_y":0.0,
 
   "z0": -1200.0,
 
@@ -34,10 +36,12 @@
   "rest_energy_electron": 0.511,
 
 
-  "cleaning_cut_mode": "theta",
+  "cleaning_cut_mode": "angle_percentile",
   "theta_percentile_min": 0.0,
   "theta_percentile_max": 99.0,
   "ellipse_peak_fraction": 0.1,
+  "angle_percentile_min": 1.0,
+  "angle_percentile_max": 99.0,
 
   "columns": {
     "x - coordinate": "x",
@@ -50,5 +54,7 @@
     "delta_yp": "delta_yp",
     "delta_theta": "delta_theta",
     "delta_energy": "delta_energy"
-  }
+  },
+  "build_interactive_outputs": false,
+  "compact_batch_result": true
 }
