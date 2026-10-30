@@ -1,0 +1,46 @@
+universe = vanilla
+
+offset = 0
+plusProcess = $(ProcId)+$(offset)
+OffProcId = $INT(plusProcess)
+
+# executable must be in submission folder
+# --> updated automatically by spawn.sh <--
+executable = job.sh
+# list of arguments to executable (empty is accepted)
+arguments = $(myRowDataFolder)
+# run folder is a sub-folder of the submission folder:
+#   there, HTCondor will find input files
+# initialdir = $(MyRunFolder)
+
+# ask to transfer files (YES/NO) whenever the filesystem is NOT shared
+should_transfer_files = YES
+# list input files to transfer, eg transfer_input_files=file1,file2,file3
+# --> updated automatically by spawn.sh <--
+transfer_input_files = job.py,input_parameters.json,MyLib.py
+# list the ONLY output files to transfer, eg ttransfer_output_files=file1,file2,file3
+# NB: if line is NOT found, then all generated/updated files are transferred back
+transfer_output_files = $(myRowDataFolder)
+when_to_transfer_output = ON_EXIT
+
+# run job as owner, such that you can ssh to job
+run_as_owner = TRUE
+
+# if initialdir is specified, these files will be in-there
+log = htcondor_$(ClusterId)_$(OffProcId).log
+output = htcondor_$(ClusterId)_$(OffProcId).out
+error = htcondor_$(ClusterId)_$(OffProcId).err
+
+request_cpus = 1
+request_disk = 200MB
+request_memory = 20GB
+
+# --> updated automatically by spawn.sh <--
+JobBatchName = "testHTCondor01"
+
+# # Target a specific machine hostname
+# requirements = (Target.Machine == "dtpvclus04")
+
+# --> HTCjobList.txt file created automatically by spawn.sh <--
+queue myRowDataFolder from HTCjobList.txt
+# queue myRowDataFolder matching dirs run_0????
