@@ -5069,14 +5069,26 @@ def analyze_dataset(
             )
         
     if cleaning_cut_mode == "angle_percentile":
+        angle_percentile_min = float(angle_percentile_min)
+        angle_percentile_max = float(angle_percentile_max)
+
         if (
-            angle_percentile_max <= 0.0
-            or angle_percentile_min >= 1.0
+            not np.isfinite(angle_percentile_min)
+            or not np.isfinite(angle_percentile_max)
+            or not (
+                0.0
+                <= angle_percentile_min
+                < angle_percentile_max
+                <= 100.0
+            )
         ):
             raise ValueError(
-                "Angle percentile limits must satisfy"
-                "0 < angle_percentile_min < angle_percentile_max < 1."
+                "Angle percentiles: expected "
+                "0 <= min < max <= 100. "
+                f"Received min={angle_percentile_min}, "
+                f"max={angle_percentile_max}."
             )
+
 
     results_original = []
     results_filtered = []
@@ -11582,6 +11594,24 @@ def run_whole(file_vacuum, file_air, constant_parameters):
     8. Scatterer comparison tables and method-comparison figures.
     """
 
+
+    configure_histogram_binning(
+        constant_parameters
+    )
+    
+    nRows_value = constant_parameters.get("nRows")
+
+    if nRows_value is None:
+        nRows = None
+    else:
+        nRows = int(nRows_value)
+
+        if nRows <= 0:
+            raise ValueError(
+                "nRows deve essere un intero positivo oppure None."
+            )
+    
+
     # ============================================================
     # CONSTANTS
     # ============================================================
@@ -11680,9 +11710,36 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         0.1,
     )
     
+    angle_percentile_min = constant_parameters.get(
+        "angle_percentile_min",
+        1.0,
+    )
+
+    angle_percentile_max = constant_parameters.get(
+        "angle_percentile_max",
+        99.0,
+    )
+
+    save_plots = bool(
+        constant_parameters.get(
+            "save_plots",
+            False,
+        )
+    )
+
+    case_output_dir_value = constant_parameters.get(
+        "case_output_dir",)
+    
     covariance0_x = float(
         constant_parameters["covariance0_x"]
     )
+
+    case_output_dir = (
+        Path(case_output_dir_value)
+        if case_output_dir_value
+        else None)
+    
+
     covariance0_y = float(
         constant_parameters["covariance0_y"]
     )
@@ -11748,6 +11805,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         positions_scoring,
         tolerance,
         column_names,
+        nRows= nRows
     )
 
     setup_air = setup_dataset(
@@ -11757,6 +11815,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         positions_scoring,
         tolerance,
         column_names,
+        nRows = nRows
     )
 
     if setup_vacuum is None:
@@ -11834,6 +11893,8 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         theta_percentile_min=theta_percentile_min,
         theta_percentile_max=theta_percentile_max,
         ellipse_peak_fraction=ellipse_peak_fraction,
+        angle_percentile_min=angle_percentile_min,
+        angle_percentile_max=angle_percentile_max,
     )
 
     # ============================================================
@@ -11863,8 +11924,44 @@ def run_whole(file_vacuum, file_air, constant_parameters):
         cleaning_cut_mode=cleaning_cut_mode,
         theta_percentile_min=theta_percentile_min,
         theta_percentile_max=theta_percentile_max,
-        ellipse_peak_fraction=ellipse_peak_fraction
+        ellipse_peak_fraction=ellipse_peak_fraction,
+        angle_percentile_min=angle_percentile_min,
+        angle_percentile_max=angle_percentile_max,
     )
+
+
+    if save_plots and case_output_dir is not None:
+        surface_plot_dir = (
+            case_output_dir
+            / "surface_plots"
+        )
+
+        surface_plot_dir.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        save_surface_outputs(
+            stored_surface_plots=stored_surface_plots_vacuum,
+            stored_distribution_plots=stored_distribution_plots_vacuum,
+            results_masked=results_masked_vacuum,
+            positions_scoring=positions_scoring,
+            ripple_filters=ripple_filters,
+            particle_type=particle_type,
+            medium="vacuum",
+            case_output_dir=surface_plot_dir,
+        )
+
+        save_surface_outputs(
+            stored_surface_plots=stored_surface_plots_air,
+            stored_distribution_plots=stored_distribution_plots_air,
+            results_masked=results_masked_air,
+            positions_scoring=positions_scoring,
+            ripple_filters=ripple_filters,
+            particle_type=particle_type,
+            medium="air",
+            case_output_dir=surface_plot_dir,
+        )
 
     # ============================================================
     # KDE-BASED ELLIPTICAL-CUT CONTROL
@@ -12770,7 +12867,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
     # RETURN RESULTS FOR STREAMLIT
     # ============================================================
 
-    return {
+    result =  {
         "results_original_vacuum": (
             results_original_vacuum
         ),
@@ -13058,6 +13155,92 @@ def run_whole(file_vacuum, file_air, constant_parameters):
             },
         },
     }
+
+    
+
+    if save_plots and case_output_dir is not None:
+        case_output_dir = Path(
+            case_output_dir
+        )
+
+        surface_plot_dir = (
+            case_output_dir
+            / "surface_plots"
+        )
+
+        surface_plot_dir.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        print("\n" + "=" * 72)
+        print("SAVING CASE OUTPUTS")
+        print("=" * 72)
+        print(
+            "Case output directory:",
+            case_output_dir,
+        )
+        print(
+            "Surface plot directory:",
+            surface_plot_dir,
+        )
+        print(
+            "Vacuum surfaces available:",
+            len(stored_surface_plots_vacuum),
+        )
+        print(
+            "Air surfaces available:",
+            len(stored_surface_plots_air),
+        )
+
+        print(
+            "\nSaving Vacuum histograms and phase-space plots..."
+        )
+
+        save_surface_outputs(
+            stored_surface_plots=stored_surface_plots_vacuum,
+            stored_distribution_plots=stored_distribution_plots_vacuum,
+            results_masked=results_masked_vacuum,
+            positions_scoring=positions_scoring,
+            ripple_filters=ripple_filters,
+            particle_type=particle_type,
+            medium="vacuum",
+            case_output_dir=surface_plot_dir,
+        )
+
+        print(
+            "Saving Air histograms and phase-space plots..."
+        )
+
+        save_surface_outputs(
+            stored_surface_plots=stored_surface_plots_air,
+            stored_distribution_plots=stored_distribution_plots_air,
+            results_masked=results_masked_air,
+            positions_scoring=positions_scoring,
+            ripple_filters=ripple_filters,
+            particle_type=particle_type,
+            medium="air",
+            case_output_dir=surface_plot_dir,
+        )
+
+        print(
+            "Saving generic tables and comparison plots..."
+        )
+
+        save_generic_outputs(
+            result=result,
+            case_output_dir=case_output_dir,
+            constant_parameters=constant_parameters,
+        )
+
+        print(
+            "Case plots and tables saved successfully."
+        )
+
+        # Important in a batch with many cases: release all residual
+        # Matplotlib figures created during the analysis.
+        plt.close("all")
+    return result
 
 # CODICI PER ANALISI TUTTE ENERGIE
 
