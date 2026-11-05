@@ -12809,12 +12809,20 @@ def run_whole(file_vacuum, file_air, constant_parameters):
                 delta_theta_air_60cm,
             ],
 
-            "Contribution in energy [MeV]": [
+            "Contribution in energy (Landau - MPV) [MeV]": [
                 delta_energy_window,
                 delta_energy_nozzle,
                 delta_energy_air_100cm,
                 delta_energy_air_60cm,
             ],
+
+            "Contribution in energy (Bethe--Bloch - mean value) [MeV]": [
+                mean_energy_window,
+                mean_energy_nozzle,
+                mean_energy_air_100cm,
+                mean_energy_air_60cm,
+            ],
+
 
             "Equivalent x (MCS) in x' [mm]": [
                 equivalent_x_MCS_window_xp,
@@ -12852,6 +12860,7 @@ def run_whole(file_vacuum, file_air, constant_parameters):
             ],
         }
     )
+
 
     # ============================================================
     # CONSOLE SUMMARY
