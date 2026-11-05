@@ -12823,7 +12823,6 @@ def run_whole(file_vacuum, file_air, constant_parameters):
                 mean_energy_air_60cm,
             ],
 
-
             "Equivalent x (MCS) in x' [mm]": [
                 equivalent_x_MCS_window_xp,
                 equivalent_x_MCS_nozzle_xp,
